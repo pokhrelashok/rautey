@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt::format};
 
 use super::{response::Response, HTTPMethod};
 
@@ -21,8 +21,9 @@ impl Router {
     }
 
     pub fn register(&mut self, path: &str, method: HTTPMethod, func: fn(response: Response)) {
+        let id = format!("{}-{}", method, path);
         self.routes.insert(
-            path.to_string(),
+            id.clone(),
             Route {
                 path: path.to_string(),
                 handler: func,
@@ -36,8 +37,9 @@ impl Router {
     }
 
     pub fn invoke(&self, path: &str, method: HTTPMethod, mut response: Response) {
-        if self.routes.contains_key(path) && (self.routes.get(path).unwrap()).method == method {
-            ((self.routes.get(path).unwrap()).handler)(response);
+        let id = format!("{}-{}", method, path);
+        if self.routes.contains_key(&id) {
+            ((self.routes.get(&id).unwrap()).handler)(response);
         } else {
             response.not_found();
         }

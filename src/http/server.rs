@@ -1,8 +1,4 @@
-use std::{
-    io::{BufReader, Write},
-    net::{TcpListener, TcpStream},
-    path,
-};
+use std::{io::BufReader, net::TcpListener};
 
 use crate::http::request::Request;
 
@@ -51,7 +47,7 @@ impl Server {
             let stream = stream.unwrap();
             let buf_reader = BufReader::new(&stream);
             let request = Request::parse(buf_reader);
-            println!("Request at {}", request.path);
+            println!("{} request at {}", request.method, request.path);
             self.router
                 .invoke(request.path.as_str(), request.method, Response::new(stream))
         }
