@@ -1,7 +1,7 @@
 mod http;
 use std::path::Path;
 
-use http::{response::Response, server::Server};
+use http::{request::Request, response::Response, server::Server};
 
 fn main() {
     let mut server = Server::new("8090");
@@ -11,10 +11,10 @@ fn main() {
     server.listen();
 }
 
-fn handle_me(mut r: Response) {
+fn handle_me(_: Request, mut r: Response) {
     r.json(r#""name":"Test""#);
 }
 
-fn handle_home(mut r: Response) {
+fn handle_home(_: Request, mut r: Response) {
     r.file(&Path::new("src/public/index.html"));
 }

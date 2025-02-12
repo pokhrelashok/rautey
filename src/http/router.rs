@@ -1,17 +1,17 @@
 use std::{collections::HashMap, fmt::format};
 
-use super::{response::Response, HTTPMethod};
+use super::{request::Request, response::Response, HTTPMethod};
 
 pub struct Route {
     path: String,
-    handler: fn(response: Response),
+    handler: fn(request: Request, response: Response),
     method: HTTPMethod,
 }
 pub struct Router {
     pub routes: HashMap<String, Route>,
 }
 
-pub type RouteHandler = fn(response: Response);
+pub type RouteHandler = fn(request: Request, response: Response);
 
 impl Router {
     pub fn new() -> Router {
@@ -20,7 +20,7 @@ impl Router {
         }
     }
 
-    pub fn register(&mut self, path: &str, method: HTTPMethod, func: fn(response: Response)) {
+    pub fn register(&mut self, path: &str, method: HTTPMethod, func: RouteHandler) {
         let id = format!("{}-{}", method, path);
         self.routes.insert(
             id.clone(),
@@ -36,10 +36,10 @@ impl Router {
         return self.routes.contains_key(path);
     }
 
-    pub fn invoke(&self, path: &str, method: HTTPMethod, mut response: Response) {
-        let id = format!("{}-{}", method, path);
+    pub fn invoke(&self, request: Request, mut response: Response) {
+        let id = format!("{}-{}", request.method, request.path);
         if self.routes.contains_key(&id) {
-            ((self.routes.get(&id).unwrap()).handler)(response);
+            ((self.routes.get(&id).unwrap()).handler)(request, response);
         } else {
             response.not_found();
         }

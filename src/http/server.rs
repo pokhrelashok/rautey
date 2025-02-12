@@ -48,8 +48,7 @@ impl Server {
             let buf_reader = BufReader::new(&stream);
             let request = Request::parse(buf_reader);
             println!("{} request at {}", request.method, request.path);
-            self.router
-                .invoke(request.path.as_str(), request.method, Response::new(stream))
+            self.router.invoke(request, Response::new(stream))
         }
     }
 }
