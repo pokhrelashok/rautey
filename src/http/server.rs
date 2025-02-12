@@ -10,7 +10,7 @@ use super::{
 
 pub struct Server {
     port: String,
-    router: Router,
+    pub router: Router,
 }
 impl Server {
     pub fn new(port: &str) -> Server {
