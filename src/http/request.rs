@@ -4,13 +4,7 @@ use std::{
     net::TcpStream,
 };
 
-#[derive(Debug)]
-pub enum HTTPMethod {
-    GET,
-    POST,
-    PUT,
-    DELETE,
-}
+use super::HTTPMethod;
 
 #[derive(Debug)]
 pub struct Request {
@@ -44,7 +38,8 @@ impl Request {
             "POST" => method = HTTPMethod::POST,
             "PUT" => method = HTTPMethod::PUT,
             "DELETE" => method = HTTPMethod::DELETE,
-            _ => {}
+            "PATCH" => method = HTTPMethod::PATCH,
+            _ => method = HTTPMethod::GET,
         };
 
         uri = words.next().unwrap().to_string();
