@@ -1,6 +1,14 @@
 use std::{collections::HashMap, vec};
 
+use regex::Regex;
+
 use super::{request::Request, response::Response, HTTPMethod};
+
+fn strip_braces(s: &str) -> &str {
+    s.strip_prefix('{')
+        .and_then(|s| s.strip_suffix('}'))
+        .unwrap_or(s)
+}
 
 pub struct Router {
     pub routes: Box<RouteTree>,
@@ -12,8 +20,7 @@ pub struct RouteTree {
     children: Vec<Box<RouteTree>>,
 }
 
-pub type RouteHandler = fn(request: Request, response: Response);
-
+pub type RouteHandler = fn(request: Request, response: Response, values: HashMap<String, String>);
 impl Router {
     pub fn new() -> Router {
         Router {
@@ -56,18 +63,22 @@ impl Router {
         let mut route_path = &self.routes;
         let mut found = true;
         let mut was_wildcard = false;
+        let mut dyn_route_params: HashMap<String, String> = HashMap::new();
 
         if path.len() > 0 {
+            let param_reg = Regex::new(r"\{(\w+)\}").unwrap();
             for dir in path.split('/') {
-                let existing_index = route_path
-                    .children
-                    .iter()
-                    .position(|child| child.path == dir || child.path == "*");
+                let existing_index = route_path.children.iter().position(|child| {
+                    child.path == dir || child.path == "*" || param_reg.is_match(&child.path)
+                });
 
                 if let Some(index) = existing_index {
                     route_path = route_path.children.get(index).unwrap();
                     if route_path.path == "*" {
                         was_wildcard = true
+                    } else if param_reg.is_match(&route_path.path) {
+                        dyn_route_params
+                            .insert(strip_braces(&route_path.path).to_owned(), dir.to_owned());
                     }
                 } else {
                     if !was_wildcard {
@@ -90,7 +101,7 @@ impl Router {
         }
 
         if found && (route_path.handlers.contains_key(&request.method)) {
-            route_path.handlers.get(&request.method).unwrap()(request, response);
+            route_path.handlers.get(&request.method).unwrap()(request, response, dyn_route_params);
         } else {
             response.not_found();
         }
