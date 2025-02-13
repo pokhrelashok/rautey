@@ -2,11 +2,17 @@ mod http;
 use http::{request::Request, response::Response, server::Server};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, path::Path};
-#[derive(Serialize, Deserialize)]
+fn default_gender() -> String {
+    "Male".to_string()
+}
+#[derive(Serialize, Deserialize, Debug)]
+
 struct RegisterForm {
     name: String,
     email: String,
-    password: String,
+    age: String,
+    #[serde(default = "default_gender")]
+    gender: String,
 }
 
 fn main() {
@@ -19,7 +25,12 @@ fn main() {
 fn handle_home(_: Request, mut r: Response, _: HashMap<String, String>) {
     r.file(Path::new("src/public/index.html"));
 }
+
 fn handle_register(req: Request, mut res: Response, _: HashMap<String, String>) {
-    println!("{:#?}", req);
+    let body = req.parse_body::<RegisterForm>();
+    if let Some(body) = body {
+        let body = body.expect("data error");
+        println!("{:#?}", body);
+    }
     res.text("Success");
 }

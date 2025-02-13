@@ -7,3 +7,4 @@ edition = "2021"
 regex = "1.11.1"
 serde = { version = "1.0.217", features = ["derive"] }
 serde_json = "1.0"
+urlencoding = "2.1.3"

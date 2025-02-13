@@ -4,6 +4,9 @@ use std::{
     net::TcpStream,
 };
 
+use serde::Deserialize;
+use urlencoding::decode;
+
 use super::HTTPMethod;
 
 #[derive(Debug)]
@@ -89,4 +92,49 @@ impl Request {
             headers,
         }
     }
+
+    pub fn parse_body<T>(&self) -> Option<Result<T, serde_json::Error>>
+    where
+        T: for<'de> Deserialize<'de>,
+    {
+        let content_type = self
+            .headers
+            .get("Content-Type")
+            .unwrap_or(&String::from(""))
+            .to_owned();
+        println!("{content_type} {}", self.body);
+        if content_type == "application/json" {
+            return match serde_json::from_str(&self.body) {
+                Ok(parsed) => Some(Ok(parsed)),
+                Err(e) => Some(Err(e)),
+            };
+        } else if content_type == "application/x-www-form-urlencoded" {
+            let decoded = urlencoded_to_json(&self.body);
+
+            return match serde_json::to_value(decoded) {
+                Ok(json) => match T::deserialize(json) {
+                    Ok(v) => Some(Ok(v)),
+                    Err(e) => Some(Err(e)),
+                },
+                Err(e) => Some(Err(e)),
+            };
+        }
+        return None;
+    }
+}
+
+fn urlencoded_to_json(content: &str) -> HashMap<String, String> {
+    let content = decode(content).expect("Invalid data");
+    let key_val_pairs = content.split("&");
+    let mut result = HashMap::new();
+    for key_val_pair in key_val_pairs {
+        let mut key_val = key_val_pair.split("=");
+        let k = key_val.nth(0).unwrap_or_default().to_string();
+        let v = key_val.nth(0).unwrap_or_default().to_string();
+        if !k.is_empty() && !v.is_empty() {
+            result.insert(k, v);
+        }
+    }
+
+    return result;
 }
