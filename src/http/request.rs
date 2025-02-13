@@ -13,6 +13,7 @@ pub struct Request {
     pub path: String,
     pub body: String,
     pub query: HashMap<String, String>,
+    pub headers: HashMap<String, String>,
 }
 
 impl Request {
@@ -22,15 +23,16 @@ impl Request {
         let mut length = 0 as u16;
         let mut path = String::new();
         let mut query = HashMap::new();
+        let mut headers = HashMap::new();
 
-        let headers: Vec<String> = buf_reader
+        let all_headers: Vec<String> = buf_reader
             .by_ref()
             .lines()
             .map(|f| f.unwrap())
             .take_while(|line| !line.is_empty())
             .collect();
 
-        let mut lines = headers.iter();
+        let mut lines = all_headers.iter();
         let first_line = lines.next().unwrap();
         let mut words = first_line.split_whitespace();
 
@@ -44,31 +46,38 @@ impl Request {
 
         uri = words.next().unwrap().to_string();
 
+        // Extract request headers
         for line in lines {
-            if line.starts_with("Content-Length") {
-                length = line
-                    .split(":")
-                    .nth(1)
-                    .unwrap()
-                    .trim()
-                    .parse::<u16>()
-                    .unwrap();
-            }
+            let mut header_value = line.trim().split(":");
+            let h = header_value.next().unwrap_or_default().trim();
+            let v = header_value.next().unwrap_or_default().trim();
+            headers.insert(h.to_string(), v.to_string());
         }
 
-        let mut body = vec![0; length as usize]; //New Vector with size of Content
-        buf_reader.read_exact(&mut body).unwrap(); //Get the Body Content.
+        // Extract request body
+        length = headers
+            .get("Content-Length")
+            .unwrap()
+            .trim()
+            .parse::<u16>()
+            .unwrap();
+
+        let mut body = vec![0; length as usize];
+        buf_reader.read_exact(&mut body).unwrap();
         let body = String::from_utf8_lossy(&body).to_string();
 
+        // Extract Query Params from request
         let mut path_params = uri.split("?");
         path = path_params.nth(0).unwrap_or_default().to_owned();
-        let query_params = path_params.nth(0).unwrap_or_default().to_owned();
-        let key_vals: Vec<&str> = query_params.split("&").collect();
-        for pair in key_vals {
-            let mut spl = pair.split("=");
-            let key = spl.nth(0).unwrap_or_default().to_owned();
-            let val = spl.nth(0).unwrap_or_default().to_owned();
-            query.insert(key, val);
+        let query_params = path_params.nth(0);
+        if let Some(qp) = query_params {
+            let key_vals: Vec<&str> = qp.split("&").collect();
+            for pair in key_vals {
+                let mut spl = pair.split("=");
+                let key = spl.nth(0).unwrap_or_default().to_owned();
+                let val = spl.nth(0).unwrap_or_default().to_owned();
+                query.insert(key, val);
+            }
         }
 
         Request {
@@ -77,6 +86,7 @@ impl Request {
             body,
             query,
             path,
+            headers,
         }
     }
 }

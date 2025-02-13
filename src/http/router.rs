@@ -20,7 +20,9 @@ pub struct RouteTree {
     children: Vec<Box<RouteTree>>,
 }
 
-pub type RouteHandler = fn(request: Request, response: Response, values: HashMap<String, String>);
+pub type RouteHandler =
+    fn(request: Request, response: Response, route_values: HashMap<String, String>);
+
 impl Router {
     pub fn new() -> Router {
         Router {
