@@ -10,6 +10,7 @@ fn main() {
     server.post("/api/me", handle_me);
     server.get("/api/users/{userId}", handle_get_user);
     server.get("/public/*", handle_public);
+    server.get("/emails/{emailId}/{attachmentId}", handle_email);
     server.listen();
 }
 
@@ -28,4 +29,7 @@ fn handle_public(_: Request, mut r: Response, _: HashMap<String, String>) {
 fn handle_get_user(_: Request, mut res: Response, pams: HashMap<String, String>) {
     let user_id: String = pams.get("userId").unwrap_or(&String::from("")).to_owned();
     res.text(format!("You asked for userID {}", user_id).as_str());
+}
+fn handle_email(_: Request, mut res: Response, pams: HashMap<String, String>) {
+    res.text(format!("Passed details {:#?}", pams).as_str());
 }

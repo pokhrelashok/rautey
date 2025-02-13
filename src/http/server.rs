@@ -42,7 +42,8 @@ impl Server {
 
     pub fn listen(&self) {
         println!("Server started on port {}", self.port);
-        let listener = TcpListener::bind(format!("127.0.0.1:{}", self.port)).unwrap();
+        let listener = TcpListener::bind(format!("127.0.0.1:{}", self.port))
+            .expect(format!("Port {} is already in use", self.port).as_str());
         for stream in listener.incoming() {
             let stream = stream.unwrap();
             let buf_reader = BufReader::new(&stream);

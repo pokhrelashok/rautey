@@ -1,6 +1,6 @@
 use std::{
-    fs::{self},
-    io::Write,
+    fs::{self, File},
+    io::{Read, Write},
     net::TcpStream,
     path::Path,
 };
@@ -39,8 +39,38 @@ impl Response {
     }
 
     pub fn file(&mut self, path: &Path) {
-        let file_content = fs::read_to_string(path).expect("Cannot open the file");
-        let extension = path.extension().unwrap_or_default().to_string_lossy();
-        self.success(&file_content, &format!("text/{extension}"));
+        if let Ok(mut file) = File::open(path) {
+            let mut contents = Vec::new();
+            file.read_to_end(&mut contents)
+                .expect("Failed to read file");
+            let content_type = match path.extension().and_then(|ext| ext.to_str()) {
+                Some("html") => "text/html",
+                Some("css") => "text/css",
+                Some("js") => "application/javascript",
+                Some("json") => "application/json",
+                Some("png") => "image/png",
+                Some("jpg") | Some("jpeg") => "image/jpeg",
+                Some("pdf") => "application/pdf",
+                _ => "application/octet-stream",
+            };
+            let response = format!(
+                "HTTP/1.1 200 OK\r\n\
+            Content-Length: {}\r\n\
+            Content-Type: {}\r\n\
+            Connection: close\r\n\
+            \r\n",
+                contents.len(),
+                content_type,
+            );
+
+            self.stream
+                .write_all(response.as_bytes())
+                .expect("Failed to send response");
+            self.stream
+                .write_all(&contents)
+                .expect("Failed to send file");
+        } else {
+            self.not_found();
+        }
     }
 }
