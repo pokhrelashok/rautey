@@ -28,8 +28,7 @@ fn handle_home(_: Request, mut r: Response, _: HashMap<String, String>) {
 
 fn handle_register(req: Request, mut res: Response, _: HashMap<String, String>) {
     let body = req.parse_body::<RegisterForm>();
-    if let Some(body) = body {
-        let body = body.expect("data error");
+    if let Ok(body) = body {
         println!("{:#?}", body);
     }
     res.text("Success");

@@ -5,9 +5,18 @@ use std::{
 };
 
 use serde::Deserialize;
+use serde_json::Error;
 use urlencoding::decode;
 
 use super::HTTPMethod;
+#[derive(Debug)]
+pub struct Body<T>
+where
+    T: for<'de> Deserialize<'de>,
+{
+    pub data: Option<T>,
+    pub files: HashMap<String, FileData>,
+}
 
 #[derive(Debug)]
 pub struct Request {
@@ -23,7 +32,7 @@ impl Request {
     pub fn parse(mut buf_reader: BufReader<&TcpStream>) -> Request {
         let mut method = HTTPMethod::GET;
         let mut uri = String::new();
-        let mut length = 0 as u16;
+        let mut length = 0 as u32;
         let mut path = String::new();
         let mut query = HashMap::new();
         let mut headers = HashMap::new();
@@ -62,7 +71,7 @@ impl Request {
             .get("Content-Length")
             .unwrap()
             .trim()
-            .parse::<u16>()
+            .parse::<u32>()
             .unwrap();
 
         let mut body = vec![0; length as usize];
@@ -93,7 +102,7 @@ impl Request {
         }
     }
 
-    pub fn parse_body<T>(&self) -> Option<Result<T, serde_json::Error>>
+    pub fn parse_body<T>(&self) -> Result<Body<T>, Error>
     where
         T: for<'de> Deserialize<'de>,
     {
@@ -104,18 +113,24 @@ impl Request {
             .to_owned();
         if content_type == "application/json" {
             return match serde_json::from_str(&self.body) {
-                Ok(parsed) => Some(Ok(parsed)),
-                Err(e) => Some(Err(e)),
+                Ok(parsed) => Ok(Body {
+                    data: parsed,
+                    files: HashMap::new(),
+                }),
+                Err(e) => Err(e),
             };
         } else if content_type == "application/x-www-form-urlencoded" {
             let decoded = decode_url_encoded(&self.body);
 
             return match serde_json::to_value(decoded) {
                 Ok(json) => match T::deserialize(json) {
-                    Ok(v) => Some(Ok(v)),
-                    Err(e) => Some(Err(e)),
+                    Ok(v) => Ok(Body {
+                        data: Some(v),
+                        files: HashMap::new(),
+                    }),
+                    Err(e) => Err(e),
                 },
-                Err(e) => Some(Err(e)),
+                Err(e) => Err(e),
             };
         } else if content_type.contains("multipart/form-data") {
             let boundary = content_type
@@ -123,16 +138,23 @@ impl Request {
                 .find(|s| s.starts_with("boundary="))
                 .map(|s| s.trim_start_matches("boundary=").to_string())
                 .unwrap();
-            let decoded = parse_multipart_form_data(&self.body, &boundary);
+            let (decoded, files) = parse_multipart_form_data(&self.body, &boundary);
             return match serde_json::to_value(decoded) {
                 Ok(json) => match T::deserialize(json) {
-                    Ok(v) => Some(Ok(v)),
-                    Err(e) => Some(Err(e)),
+                    Ok(v) => Ok(Body {
+                        data: Some(v),
+                        files: files,
+                    }),
+                    Err(e) => Err(e),
                 },
-                Err(e) => Some(Err(e)),
+                Err(e) => Err(e),
             };
+        } else {
+            return Ok(Body {
+                data: None,
+                files: HashMap::new(),
+            });
         }
-        return None;
     }
 }
 
@@ -152,29 +174,68 @@ fn decode_url_encoded(content: &str) -> HashMap<String, String> {
     return result;
 }
 
-fn parse_multipart_form_data(form_data: &str, boundary: &str) -> HashMap<String, String> {
+#[derive(Debug)]
+pub struct FileData {
+    pub filename: String,
+    pub content_type: Option<String>,
+    pub content: Vec<u8>,
+    pub extension: String,
+    pub size: u64,
+}
+
+fn parse_multipart_form_data(
+    form_data: &str,
+    boundary: &str,
+) -> (HashMap<String, String>, HashMap<String, FileData>) {
     let mut fields = HashMap::new();
+    let mut files = HashMap::new();
     let boundary_marker = format!("--{}", boundary);
-    let mut parts = form_data.split(&boundary_marker);
-    parts.next().unwrap();
-    for part in parts {
-        if let Some(header_body) = part.split(";").nth(1) {
-            let header_body = header_body.trim_end_matches("\r\n");
-            let mut lines = header_body.lines();
-            if let Some(header) = lines.next() {
-                if header.contains("name=") {
-                    let key = header
-                        .split("name=")
-                        .nth(1)
-                        .unwrap_or("")
-                        .trim()
-                        .trim_matches(&['"', '\'', ' '][..])
-                        .to_string();
-                    let val = lines.nth(1).unwrap_or_default();
-                    fields.insert(key, val.to_string());
+    let end_marker = format!("--{}--", boundary);
+
+    for part in form_data.split(&boundary_marker).skip(1) {
+        let part = part.trim();
+        if part == end_marker {
+            break;
+        }
+
+        if let Some((headers, body)) = part.split_once("\r\n\r\n") {
+            let body = body.trim_end_matches("\r\n").as_bytes().to_vec(); // Handle as bytes for files
+
+            let mut field_name = None;
+            let mut filename = None;
+            let mut content_type = None;
+
+            for header in headers.lines() {
+                if header.starts_with("Content-Disposition: form-data;") {
+                    if let Some(name_part) = header.split("name=").nth(1) {
+                        field_name = Some(name_part.trim_matches(&['"', '\''][..]).to_string());
+                    }
+                    if let Some(filename_part) = header.split("filename=").nth(1) {
+                        filename = Some(filename_part.trim_matches(&['"', '\''][..]).to_string());
+                    }
+                } else if header.starts_with("Content-Type:") {
+                    content_type = Some(header.split_once(": ").unwrap().1.to_string());
+                }
+            }
+
+            if let Some(name) = field_name {
+                if let Some(file_name) = filename {
+                    files.insert(
+                        name,
+                        FileData {
+                            extension: file_name.split(".").last().unwrap_or_default().to_owned(),
+                            filename: file_name,
+                            content_type,
+                            size: body.len() as u64,
+                            content: body,
+                        },
+                    );
+                } else {
+                    fields.insert(name, String::from_utf8_lossy(&body).to_string());
                 }
             }
         }
     }
-    fields
+
+    (fields, files)
 }
