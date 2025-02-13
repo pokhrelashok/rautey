@@ -102,15 +102,28 @@ impl Request {
             .get("Content-Type")
             .unwrap_or(&String::from(""))
             .to_owned();
-        println!("{content_type} {}", self.body);
         if content_type == "application/json" {
             return match serde_json::from_str(&self.body) {
                 Ok(parsed) => Some(Ok(parsed)),
                 Err(e) => Some(Err(e)),
             };
         } else if content_type == "application/x-www-form-urlencoded" {
-            let decoded = urlencoded_to_json(&self.body);
+            let decoded = decode_url_encoded(&self.body);
 
+            return match serde_json::to_value(decoded) {
+                Ok(json) => match T::deserialize(json) {
+                    Ok(v) => Some(Ok(v)),
+                    Err(e) => Some(Err(e)),
+                },
+                Err(e) => Some(Err(e)),
+            };
+        } else if content_type.contains("multipart/form-data") {
+            let boundary = content_type
+                .split("; ")
+                .find(|s| s.starts_with("boundary="))
+                .map(|s| s.trim_start_matches("boundary=").to_string())
+                .unwrap();
+            let decoded = parse_multipart_form_data(&self.body, &boundary);
             return match serde_json::to_value(decoded) {
                 Ok(json) => match T::deserialize(json) {
                     Ok(v) => Some(Ok(v)),
@@ -123,7 +136,7 @@ impl Request {
     }
 }
 
-fn urlencoded_to_json(content: &str) -> HashMap<String, String> {
+fn decode_url_encoded(content: &str) -> HashMap<String, String> {
     let content = decode(content).expect("Invalid data");
     let key_val_pairs = content.split("&");
     let mut result = HashMap::new();
@@ -137,4 +150,31 @@ fn urlencoded_to_json(content: &str) -> HashMap<String, String> {
     }
 
     return result;
+}
+
+fn parse_multipart_form_data(form_data: &str, boundary: &str) -> HashMap<String, String> {
+    let mut fields = HashMap::new();
+    let boundary_marker = format!("--{}", boundary);
+    let mut parts = form_data.split(&boundary_marker);
+    parts.next().unwrap();
+    for part in parts {
+        if let Some(header_body) = part.split(";").nth(1) {
+            let header_body = header_body.trim_end_matches("\r\n");
+            let mut lines = header_body.lines();
+            if let Some(header) = lines.next() {
+                if header.contains("name=") {
+                    let key = header
+                        .split("name=")
+                        .nth(1)
+                        .unwrap_or("")
+                        .trim()
+                        .trim_matches(&['"', '\'', ' '][..])
+                        .to_string();
+                    let val = lines.nth(1).unwrap_or_default();
+                    fields.insert(key, val.to_string());
+                }
+            }
+        }
+    }
+    fields
 }
