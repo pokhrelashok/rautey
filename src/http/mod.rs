@@ -15,6 +15,8 @@ impl Display for HTTPMethod {
     }
 }
 
+pub mod file;
+mod parsers;
 pub mod request;
 pub mod response;
 pub mod router;
