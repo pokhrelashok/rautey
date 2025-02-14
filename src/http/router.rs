@@ -1,4 +1,4 @@
-use std::{collections::HashMap, vec};
+use std::{collections::HashMap, path::Path, vec};
 
 use regex::Regex;
 
@@ -62,7 +62,8 @@ impl Router {
 
     pub fn invoke(&self, request: Request, mut response: Response) {
         let path = request.path.trim_matches('/');
-        let mut route_path = &self.routes;
+
+        let mut current_path = &self.routes;
         let mut found = true;
         let mut was_wildcard = false;
         let mut dyn_route_params: HashMap<String, String> = HashMap::new();
@@ -70,17 +71,17 @@ impl Router {
         if path.len() > 0 {
             let param_reg = Regex::new(r"\{(\w+)\}").unwrap();
             for dir in path.split('/') {
-                let existing_index = route_path.children.iter().position(|child| {
+                let existing_index = current_path.children.iter().position(|child| {
                     child.path == dir || child.path == "*" || param_reg.is_match(&child.path)
                 });
 
                 if let Some(index) = existing_index {
-                    route_path = route_path.children.get(index).unwrap();
-                    if route_path.path == "*" {
+                    current_path = current_path.children.get(index).unwrap();
+                    if current_path.path == "*" {
                         was_wildcard = true
-                    } else if param_reg.is_match(&route_path.path) {
+                    } else if param_reg.is_match(&current_path.path) {
                         dyn_route_params
-                            .insert(strip_braces(&route_path.path).to_owned(), dir.to_owned());
+                            .insert(strip_braces(&current_path.path).to_owned(), dir.to_owned());
                     }
                 } else {
                     if !was_wildcard {
@@ -91,21 +92,31 @@ impl Router {
             }
         }
 
-        if found && !route_path.handlers.contains_key(&request.method) {
-            let has_wildcard = route_path
+        if found && !current_path.handlers.contains_key(&request.method) {
+            let has_wildcard = current_path
                 .children
                 .iter()
                 .position(|child| child.path == "*");
 
             if let Some(index) = has_wildcard {
-                route_path = route_path.children.get(index).unwrap()
+                current_path = current_path.children.get(index).unwrap()
             }
         }
 
-        if found && (route_path.handlers.contains_key(&request.method)) {
-            route_path.handlers.get(&request.method).unwrap()(request, response, dyn_route_params);
+        if found && (current_path.handlers.contains_key(&request.method)) {
+            current_path.handlers.get(&request.method).unwrap()(
+                request,
+                response,
+                dyn_route_params,
+            );
         } else {
-            response.not_found();
+            self.try_serve_public(request, response);
         }
+    }
+
+    fn try_serve_public(&self, request: Request, mut response: Response) {
+        let path = request.path.trim_matches('/');
+        let public_path = format!("src/public/{}", path);
+        response.file(Path::new(&public_path));
     }
 }

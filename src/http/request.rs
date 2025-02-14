@@ -72,7 +72,7 @@ impl Request {
         // Extract request body
         length = headers
             .get("Content-Length")
-            .unwrap()
+            .unwrap_or(&"0".to_string())
             .trim()
             .parse::<u32>()
             .unwrap();
