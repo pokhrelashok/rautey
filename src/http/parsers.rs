@@ -20,8 +20,51 @@ pub fn parse_url_encoded(content: &str) -> HashMap<String, String> {
     return result;
 }
 
+fn split_once_bytes<'a>(slice: &'a [u8], delimiter: &[u8]) -> Option<(&'a [u8], &'a [u8])> {
+    let delimiter_len = delimiter.len();
+    if delimiter_len == 0 || slice.len() < delimiter_len {
+        return None;
+    }
+
+    for i in 0..=slice.len() - delimiter_len {
+        if &slice[i..i + delimiter_len] == delimiter {
+            return Some((&slice[..i], &slice[i + delimiter_len..]));
+        }
+    }
+
+    None
+}
+
+fn split_bytes<'a>(slice: &'a [u8], delimiter: &[u8]) -> Vec<&'a [u8]> {
+    let mut slice = slice;
+    let delimiter_len = delimiter.len();
+    if delimiter_len == 0 {
+        return vec![slice];
+    }
+
+    let mut result = Vec::new();
+    let mut start = 0;
+
+    while start + delimiter_len <= slice.len() {
+        // Check if the current window matches the delimiter
+        if &slice[start..start + delimiter_len] == delimiter {
+            // Push the part before the delimiter
+            result.push(&slice[..start]);
+            // Move the slice forward, skipping the delimiter
+            slice = &slice[start + delimiter_len..];
+            start = 0;
+        } else {
+            start += 1;
+        }
+    }
+
+    // Push the remaining part of the slice
+    result.push(slice);
+    result
+}
+
 pub fn parse_multipart_form_data(
-    form_data: &str,
+    form_data: &[u8],
     boundary: &str,
 ) -> (HashMap<String, String>, HashMap<String, UploadedFile>) {
     let mut fields = HashMap::new();
@@ -29,20 +72,27 @@ pub fn parse_multipart_form_data(
     let boundary_marker = format!("--{}", boundary);
     let end_marker = format!("--{}--", boundary);
 
-    for part in form_data.split(&boundary_marker).skip(1) {
-        let part = part.trim();
-        if part == end_marker {
+    // Convert boundary and end markers to byte slices
+    let boundary_marker_bytes = boundary_marker.as_bytes();
+    let end_marker_bytes = end_marker.as_bytes();
+
+    // Split the form data by the boundary marker
+    let parts = split_bytes(form_data, boundary_marker_bytes);
+    for part in parts.iter().skip(1) {
+        if *part == end_marker_bytes {
             break;
         }
 
-        if let Some((headers, body)) = part.split_once("\r\n\r\n") {
-            let body = body.trim_end_matches("\r\n").as_bytes().to_vec(); // Handle as bytes for files
-
+        if let Some((headers, body)) = split_once_bytes(part, b"\r\n\r\n") {
+            let mut body = body.to_vec(); // Handle as bytes for files
+            body.truncate(body.len().saturating_sub(2));
             let mut field_name = None;
             let mut filename = None;
             let mut content_type = None;
 
-            for header in headers.lines() {
+            // Convert headers to a string for parsing
+            let headers_str = String::from_utf8_lossy(headers);
+            for header in headers_str.lines() {
                 if header.starts_with("Content-Disposition: form-data;") {
                     if let Some(name_part) = header.split("name=").nth(1) {
                         field_name = Some(name_part.trim_matches(&['"', '\''][..]).to_string());
@@ -63,11 +113,11 @@ pub fn parse_multipart_form_data(
                             extension: file_name.split(".").last().unwrap_or_default().to_owned(),
                             filename: file_name,
                             content_type,
-                            size: body.len() as u64,
                             content: body,
                         },
                     );
                 } else {
+                    // Convert body to string only if it's not a file
                     fields.insert(name, String::from_utf8_lossy(&body).to_string());
                 }
             }

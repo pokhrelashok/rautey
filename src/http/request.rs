@@ -26,7 +26,7 @@ pub struct Request {
     pub method: HTTPMethod,
     pub uri: String,
     pub path: String,
-    pub body: String,
+    pub body: Vec<u8>,
     pub query: HashMap<String, String>,
     pub headers: HashMap<String, String>,
 }
@@ -79,7 +79,6 @@ impl Request {
 
         let mut body = vec![0; length as usize];
         buf_reader.read_exact(&mut body).unwrap();
-        let body = String::from_utf8_lossy(&body).to_string();
 
         // Extract Query Params from request
         let mut path_params = uri.split("?");
@@ -114,8 +113,9 @@ impl Request {
             .get("Content-Type")
             .unwrap_or(&String::from(""))
             .to_owned();
+
         if content_type == "application/json" {
-            return match serde_json::from_str(&self.body) {
+            return match serde_json::from_str(&String::from_utf8_lossy(&self.body)) {
                 Ok(parsed) => Ok(RequestBody {
                     data: parsed,
                     files: HashMap::new(),
@@ -123,7 +123,7 @@ impl Request {
                 Err(e) => Err(e),
             };
         } else if content_type == "application/x-www-form-urlencoded" {
-            let decoded = parse_url_encoded(&self.body);
+            let decoded = parse_url_encoded(&String::from_utf8_lossy(&self.body));
 
             return match serde_json::to_value(decoded) {
                 Ok(json) => match T::deserialize(json) {
