@@ -1,7 +1,7 @@
 mod http;
 use http::{request::Request, response::Response, server::Server};
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, path::Path};
+use std::{collections::HashMap, path::Path, thread, time::Duration};
 fn default_gender() -> String {
     "Male".to_string()
 }
@@ -31,13 +31,13 @@ fn handle_register(req: Request, mut res: Response, _: HashMap<String, String>) 
     let body = req.parse_body::<RegisterForm>();
     if let Ok(body) = body {
         if body.files.contains_key("cv") {
-            body.files.get("cv").unwrap().save().unwrap();
+            body.files.get("cv").unwrap().save(None, None).unwrap();
         }
     }
     res.text("Success");
 }
 
-fn get_user_details(req: Request, mut res: Response, params: HashMap<String, String>) {
+fn get_user_details(_: Request, mut res: Response, params: HashMap<String, String>) {
     res.text(format!(
         "You were requesting user_id {}",
         params.get("id").unwrap()

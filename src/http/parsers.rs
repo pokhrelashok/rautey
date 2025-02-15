@@ -107,15 +107,21 @@ pub fn parse_multipart_form_data(
 
             if let Some(name) = field_name {
                 if let Some(file_name) = filename {
-                    files.insert(
-                        name,
-                        UploadedFile {
-                            extension: file_name.split(".").last().unwrap_or_default().to_owned(),
-                            filename: file_name,
-                            content_type,
-                            content: body,
-                        },
-                    );
+                    if body.len() > 0 {
+                        files.insert(
+                            name,
+                            UploadedFile {
+                                extension: file_name
+                                    .split(".")
+                                    .last()
+                                    .unwrap_or_default()
+                                    .to_owned(),
+                                filename: file_name,
+                                content_type,
+                                content: body,
+                            },
+                        );
+                    }
                 } else {
                     fields.insert(name, String::from_utf8_lossy(&body).to_string());
                 }
