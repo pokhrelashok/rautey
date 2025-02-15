@@ -46,11 +46,8 @@ fn split_bytes<'a>(slice: &'a [u8], delimiter: &[u8]) -> Vec<&'a [u8]> {
     let mut start = 0;
 
     while start + delimiter_len <= slice.len() {
-        // Check if the current window matches the delimiter
         if &slice[start..start + delimiter_len] == delimiter {
-            // Push the part before the delimiter
             result.push(&slice[..start]);
-            // Move the slice forward, skipping the delimiter
             slice = &slice[start + delimiter_len..];
             start = 0;
         } else {
@@ -72,11 +69,9 @@ pub fn parse_multipart_form_data(
     let boundary_marker = format!("--{}", boundary);
     let end_marker = format!("--{}--", boundary);
 
-    // Convert boundary and end markers to byte slices
     let boundary_marker_bytes = boundary_marker.as_bytes();
     let end_marker_bytes = end_marker.as_bytes();
 
-    // Split the form data by the boundary marker
     let parts = split_bytes(form_data, boundary_marker_bytes);
     for part in parts.iter().skip(1) {
         if *part == end_marker_bytes {
@@ -84,24 +79,29 @@ pub fn parse_multipart_form_data(
         }
 
         if let Some((headers, body)) = split_once_bytes(part, b"\r\n\r\n") {
-            let mut body = body.to_vec(); // Handle as bytes for files
+            let mut body = body.to_vec();
             body.truncate(body.len().saturating_sub(2));
             let mut field_name = None;
             let mut filename = None;
             let mut content_type = None;
 
-            // Convert headers to a string for parsing
             let headers_str = String::from_utf8_lossy(headers);
             for header in headers_str.lines() {
-                if header.starts_with("Content-Disposition: form-data;") {
-                    if let Some(name_part) = header.split("name=").nth(1) {
-                        field_name = Some(name_part.trim_matches(&['"', '\''][..]).to_string());
-                    }
-                    if let Some(filename_part) = header.split("filename=").nth(1) {
+                for mut each_header in header.split("; ") {
+                    each_header = each_header.trim_matches(&['"', '\''][..]);
+                    if let Some(filename_part) = each_header.split("filename=").nth(1) {
                         filename = Some(filename_part.trim_matches(&['"', '\''][..]).to_string());
+                        continue;
                     }
-                } else if header.starts_with("Content-Type:") {
-                    content_type = Some(header.split_once(": ").unwrap().1.to_string());
+                    if let Some(name_part) = each_header.split("name=").nth(1) {
+                        field_name = Some(name_part.trim_matches(&['"', '\''][..]).to_string());
+                        continue;
+                    }
+                    if let Some(content_type_part) = each_header.split("filename=").nth(1) {
+                        content_type =
+                            Some(content_type_part.split_once(": ").unwrap().1.to_string());
+                        continue;
+                    }
                 }
             }
 
@@ -117,7 +117,6 @@ pub fn parse_multipart_form_data(
                         },
                     );
                 } else {
-                    // Convert body to string only if it's not a file
                     fields.insert(name, String::from_utf8_lossy(&body).to_string());
                 }
             }

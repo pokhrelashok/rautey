@@ -29,8 +29,8 @@ fn handle_home(_: Request, mut r: Response, _: HashMap<String, String>) {
 fn handle_register(req: Request, mut res: Response, _: HashMap<String, String>) {
     let body = req.parse_body::<RegisterForm>();
     if let Ok(body) = body {
-        for file in &body.files {
-            file.1.save().unwrap();
+        if body.files.contains_key("cv") {
+            body.files.get("cv").unwrap().save().unwrap();
         }
     }
     res.text("Success");
