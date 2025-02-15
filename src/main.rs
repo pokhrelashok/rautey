@@ -18,6 +18,7 @@ struct RegisterForm {
 fn main() {
     let mut server = Server::new("8090");
     server.get("/", handle_home);
+    server.post("/api/users/{id}", get_user_details);
     server.post("/api/register", handle_register);
     server.listen();
 }
@@ -34,4 +35,11 @@ fn handle_register(req: Request, mut res: Response, _: HashMap<String, String>) 
         }
     }
     res.text("Success");
+}
+
+fn get_user_details(req: Request, mut res: Response, params: HashMap<String, String>) {
+    res.text(format!(
+        "You were requesting user_id {}",
+        params.get("id").unwrap()
+    ));
 }

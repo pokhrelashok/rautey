@@ -1,4 +1,5 @@
 use std::{
+    collections::HashMap,
     fs::{self, File},
     io::{Read, Write},
     net::TcpStream,
@@ -7,11 +8,15 @@ use std::{
 
 pub struct Response {
     stream: TcpStream,
+    pub headers: HashMap<String, String>,
 }
 
 impl Response {
     pub fn new(stream: TcpStream) -> Response {
-        return Response { stream };
+        return Response {
+            stream,
+            headers: HashMap::new(),
+        };
     }
 
     pub fn not_found(&mut self) {
@@ -20,21 +25,24 @@ impl Response {
             .unwrap();
     }
 
-    pub fn success(&mut self, content: &str, ext: &str) {
+    pub fn success<T: AsRef<str>, S: AsRef<str>>(&mut self, content: T, ext: S) {
+        let content = content.as_ref();
+        let ext = ext.as_ref();
         let len = content.len();
-        self.stream
-            .write_all(
-                format!("HTTP/1.1 200 OK\r\nContent-Type: {ext}\r\nContent-Length: {len}\r\n\r\n{content}")
-                    .as_bytes(),
-            )
-            .unwrap();
+        let mut res = format!("HTTP/1.1 200 OK\r\nContent-Type: {ext}\r\nContent-Length: {len}");
+
+        for (key, val) in &mut self.headers {
+            res.push_str(&format!("\r\n{key}: {val}"));
+        }
+        res.push_str(&format!("\r\n\r\n{content}"));
+        self.stream.write_all(res.as_bytes()).unwrap();
     }
 
-    pub fn json(&mut self, json: &str) {
+    pub fn json<T: AsRef<str>>(&mut self, json: T) {
         self.success(json, "application/json");
     }
 
-    pub fn text(&mut self, text: &str) {
+    pub fn text<T: AsRef<str>>(&mut self, text: T) {
         self.success(text, "text/plain");
     }
 
