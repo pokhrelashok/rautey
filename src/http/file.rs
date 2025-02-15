@@ -14,10 +14,35 @@ pub struct UploadedFile {
     pub extension: String,
 }
 
-impl UploadedFile {
-    pub fn save(&self, path: Option<&str>, filename: Option<&str>) -> Result<(), Box<dyn Error>> {
-        let base_path = path.unwrap_or("src/storage/uploads");
-        let file_name: String = filename
+pub struct Uploader<'a> {
+    pub file: &'a UploadedFile,
+    pub filename: Option<String>,
+    pub path: Option<String>,
+}
+
+impl<'a> Uploader<'a> {
+    pub fn new(file: &'a UploadedFile) -> Uploader<'a> {
+        Uploader {
+            file: file,
+            filename: None,
+            path: None,
+        }
+    }
+
+    pub fn with_filename<T: Into<String>>(mut self, filename: T) -> Uploader<'a> {
+        self.filename = Some(filename.into());
+        self
+    }
+    pub fn with_path<T: Into<String>>(mut self, path: T) -> Uploader<'a> {
+        self.path = Some(path.into());
+        self
+    }
+    pub fn upload(&self) -> Result<(), Box<dyn Error>> {
+        let default_path = "src/storage/uploads".to_string();
+        let base_path = self.path.as_ref().unwrap_or(&default_path);
+        let file_name: String = self
+            .filename
+            .as_ref()
             .map(|s| s.to_string())
             .unwrap_or_else(|| {
                 let start = SystemTime::now();
@@ -25,7 +50,7 @@ impl UploadedFile {
                 since_the_epoch.to_string()
             })
             .to_string();
-        let file_path = format!("{}/{}.{}", base_path, file_name, self.extension);
+        let file_path = format!("{}/{}.{}", base_path, file_name, self.file.extension);
         let parent_dir = Path::new(&file_path).parent().ok_or("Invalid file path")?;
         if !parent_dir.exists() {
             std::fs::create_dir_all(parent_dir)?;
@@ -37,9 +62,15 @@ impl UploadedFile {
             .open(&file_path)?;
 
         let mut writer = BufWriter::new(file);
-        writer.write_all(&self.content)?;
+        writer.write_all(&self.file.content)?;
         writer.flush()?;
 
         Ok(())
+    }
+}
+
+impl UploadedFile {
+    pub fn uploader(&self) -> Uploader {
+        return Uploader::new(self);
     }
 }

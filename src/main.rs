@@ -31,7 +31,13 @@ fn handle_register(req: Request, mut res: Response, _: HashMap<String, String>) 
     let body = req.parse_body::<RegisterForm>();
     if let Ok(body) = body {
         if body.files.contains_key("cv") {
-            body.files.get("cv").unwrap().save(None, None).unwrap();
+            let cv_file = body.files.get("cv").unwrap();
+            cv_file
+                .uploader()
+                .with_filename("test_filename")
+                .with_path("src/storage/test_uploads")
+                .upload()
+                .unwrap();
         }
     }
     res.text("Success");
