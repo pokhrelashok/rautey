@@ -12,6 +12,7 @@ pub struct UploadedFile {
     pub content_type: Option<String>,
     pub content: Vec<u8>,
     pub extension: String,
+    pub size: u64,
 }
 
 pub struct Uploader<'a> {

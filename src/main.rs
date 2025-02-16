@@ -1,5 +1,5 @@
 mod http;
-use http::{request::Request, response::Response, server::Server};
+use http::{cookie::Cookie, request::Request, response::Response, server::Server};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, path::Path, thread, time::Duration};
 fn default_gender() -> String {
@@ -44,7 +44,12 @@ fn handle_register(req: Request, mut res: Response, _: HashMap<String, String>) 
 }
 
 fn get_user_details(_: Request, mut res: Response, params: HashMap<String, String>) {
-    res.text(format!(
+    res.with_cookie(
+        Cookie::new(String::from("Hello"), String::from("world"))
+            .with_http_only(true)
+            .with_secure(true),
+    )
+    .text(format!(
         "You were requesting user_id {}",
         params.get("id").unwrap()
     ));

@@ -111,6 +111,7 @@ pub fn parse_multipart_form_data(
                         files.insert(
                             name,
                             UploadedFile {
+                                size: body.len() as u64,
                                 extension: file_name
                                     .split(".")
                                     .last()

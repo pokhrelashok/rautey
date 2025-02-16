@@ -1,54 +1,99 @@
 use std::{
     collections::HashMap,
-    fs::{self, File},
+    fs::File,
     io::{Read, Write},
     net::TcpStream,
     path::Path,
 };
 
+use super::{cookie::Cookie, HTTPStatus};
+
 pub struct Response {
     stream: TcpStream,
     headers: HashMap<String, String>,
+    cookies: Vec<Cookie>,
+    status: HTTPStatus,
 }
 
 impl Response {
     pub fn new(stream: TcpStream) -> Response {
         return Response {
             stream,
+            status: HTTPStatus::SUCCESS,
             headers: HashMap::new(),
+            cookies: vec![],
         };
     }
-    pub fn add_header<T: Into<String>, S: Into<String>>(&mut self, key: T, value: S) {
-        self.headers.insert(key.into(), value.into());
-    }
-    pub fn not_found(&mut self) {
-        self.stream
-            .write_all("HTTP/1.1 404 Not Found\r\n\r\n".as_bytes())
-            .unwrap();
+
+    pub fn with_status(mut self, status: HTTPStatus) -> Response {
+        self.status = status;
+        self
     }
 
-    pub fn success<T: AsRef<str>, S: AsRef<str>>(&mut self, content: T, ext: S) {
-        let content = content.as_ref();
-        let ext = ext.as_ref();
-        let len = content.len();
-        let mut res = format!("HTTP/1.1 200 OK\r\nContent-Type: {ext}\r\nContent-Length: {len}");
-
-        for (key, val) in &mut self.headers {
-            res.push_str(&format!("\r\n{key}: {val}"));
+    pub fn with_headers<T: Into<String>, S: Into<String>>(
+        mut self,
+        headers: HashMap<T, S>,
+    ) -> Response {
+        for (k, v) in headers {
+            self.headers.insert(k.into(), v.into());
         }
-        res.push_str(&format!("\r\n\r\n{content}"));
-        self.stream.write_all(res.as_bytes()).unwrap();
+        self
     }
 
-    pub fn json<T: AsRef<str>>(&mut self, json: T) {
-        self.success(json, "application/json");
+    pub fn with_header<T: Into<String>, S: Into<String>>(mut self, key: T, value: S) -> Response {
+        self.headers.insert(key.into(), value.into());
+        self
     }
 
-    pub fn text<T: AsRef<str>>(&mut self, text: T) {
-        self.success(text, "text/plain");
+    pub fn with_cookie(mut self, cookie: Cookie) -> Response {
+        self.cookies.push(cookie);
+        self
+    }
+    pub fn with_cookies(mut self, mut cookies: Vec<Cookie>) -> Response {
+        self.cookies.append(&mut cookies);
+        self
     }
 
-    pub fn file(&mut self, path: &Path) {
+    pub fn not_found(mut self) {
+        self.status = HTTPStatus::NOT_FOUND;
+        self.respond(b"", "text/plain");
+    }
+
+    fn respond<S: AsRef<str>>(&mut self, content: &[u8], content_type: S) {
+        let status_line = format!(
+            "HTTP/1.1 {} {}\r\n",
+            self.status.status_code(),
+            self.status.status_text()
+        );
+        let mut headers = String::new();
+        for (key, value) in &self.headers {
+            headers.push_str(&format!("{}: {}\r\n", key, value));
+        }
+        let mut cookies = String::new();
+        for cookie in &self.cookies {
+            cookies.push_str(&format!("Set-Cookie: {}\r\n", cookie.to_string()));
+        }
+        let response = format!(
+            "{}{}{}Connection: close\r\nContent-Length: {}\r\nContent-Type: {}\r\n\r\n",
+            status_line,
+            headers,
+            cookies,
+            content.len(),
+            content_type.as_ref()
+        );
+        self.stream.write_all(response.as_bytes()).unwrap();
+        self.stream.write_all(content).unwrap();
+    }
+
+    pub fn json<T: AsRef<str>>(mut self, json: T) {
+        self.respond(json.as_ref().as_bytes(), "application/json");
+    }
+
+    pub fn text<T: AsRef<str>>(mut self, text: T) {
+        self.respond(text.as_ref().as_bytes(), "text/plain");
+    }
+
+    pub fn file(mut self, path: &Path) {
         if let Ok(mut file) = File::open(path) {
             let mut contents = Vec::new();
             file.read_to_end(&mut contents)
@@ -63,22 +108,7 @@ impl Response {
                 Some("pdf") => "application/pdf",
                 _ => "application/octet-stream",
             };
-            let response = format!(
-                "HTTP/1.1 200 OK\r\n\
-            Content-Length: {}\r\n\
-            Content-Type: {}\r\n\
-            Connection: close\r\n\
-            \r\n",
-                contents.len(),
-                content_type,
-            );
-
-            self.stream
-                .write_all(response.as_bytes())
-                .expect("Failed to send response");
-            self.stream
-                .write_all(&contents)
-                .expect("Failed to send file");
+            self.respond(&contents, content_type);
         } else {
             self.not_found();
         }
