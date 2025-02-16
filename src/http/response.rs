@@ -8,7 +8,7 @@ use std::{
 
 pub struct Response {
     stream: TcpStream,
-    pub headers: HashMap<String, String>,
+    headers: HashMap<String, String>,
 }
 
 impl Response {
@@ -18,7 +18,9 @@ impl Response {
             headers: HashMap::new(),
         };
     }
-
+    pub fn add_header<T: Into<String>, S: Into<String>>(&mut self, key: T, value: S) {
+        self.headers.insert(key.into(), value.into());
+    }
     pub fn not_found(&mut self) {
         self.stream
             .write_all("HTTP/1.1 404 Not Found\r\n\r\n".as_bytes())
