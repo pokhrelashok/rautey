@@ -24,20 +24,20 @@ impl Server {
         self.router.register(path, method, func);
     }
 
-    pub fn get(&mut self, path: &str, func: RouteHandler) {
-        self.register(path, HTTPMethod::GET, func);
+    pub fn get(&mut self, path: &str, handler: RouteHandler) {
+        self.register(path, HTTPMethod::GET, handler);
     }
-    pub fn post(&mut self, path: &str, func: RouteHandler) {
-        self.register(path, HTTPMethod::POST, func);
+    pub fn post(&mut self, path: &str, handler: RouteHandler) {
+        self.register(path, HTTPMethod::POST, handler);
     }
-    pub fn delete(&mut self, path: &str, func: RouteHandler) {
-        self.register(path, HTTPMethod::DELETE, func);
+    pub fn delete(&mut self, path: &str, handler: RouteHandler) {
+        self.register(path, HTTPMethod::DELETE, handler);
     }
-    pub fn put(&mut self, path: &str, func: RouteHandler) {
-        self.register(path, HTTPMethod::PUT, func);
+    pub fn put(&mut self, path: &str, handler: RouteHandler) {
+        self.register(path, HTTPMethod::PUT, handler);
     }
-    pub fn patch(&mut self, path: &str, func: RouteHandler) {
-        self.register(path, HTTPMethod::PATCH, func);
+    pub fn patch(&mut self, path: &str, handler: RouteHandler) {
+        self.register(path, HTTPMethod::PATCH, handler);
     }
 
     pub fn listen(&self) {

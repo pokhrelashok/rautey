@@ -23,7 +23,7 @@ fn main() {
     server.listen();
 }
 
-fn handle_home(_: Request, mut r: Response, _: HashMap<String, String>) {
+fn handle_home(req: Request, mut r: Response, _: HashMap<String, String>) {
     r.file(Path::new("src/public/index.html"));
 }
 

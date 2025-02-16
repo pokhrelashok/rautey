@@ -46,7 +46,7 @@ impl Request {
             .map(|f| f.unwrap())
             .take_while(|line| !line.is_empty())
             .collect();
-
+        println!("{:#?}", all_headers);
         let mut lines = all_headers.iter();
         let first_line = lines.next().unwrap();
         let mut words = first_line.split_whitespace();
@@ -158,5 +158,18 @@ impl Request {
                 files: HashMap::new(),
             });
         }
+    }
+
+    pub fn cookies(&self) -> HashMap<String, String> {
+        let mut cookies = HashMap::new();
+        if let Some(cooks) = self.headers.get("Cookie") {
+            for cookie_line in cooks.split(";") {
+                let (k, v) = cookie_line.split_once("=").unwrap_or_default();
+                if k.len() > 0 {
+                    cookies.insert(k.to_string(), v.to_string());
+                }
+            }
+        }
+        cookies
     }
 }
