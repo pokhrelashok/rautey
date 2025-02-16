@@ -25,8 +25,8 @@ impl Cookie {
         self
     }
 
-    pub fn with_secure(mut self, secure: bool) -> Self {
-        self.secure = secure;
+    pub fn secure(mut self) -> Self {
+        self.secure = true;
         self
     }
 
@@ -35,8 +35,8 @@ impl Cookie {
         self
     }
 
-    pub fn with_http_only(mut self, http_only: bool) -> Self {
-        self.http_only = http_only;
+    pub fn http_only(mut self) -> Self {
+        self.http_only = true;
         self
     }
 }

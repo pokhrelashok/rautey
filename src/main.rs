@@ -46,8 +46,8 @@ fn handle_register(req: Request, mut res: Response, _: HashMap<String, String>) 
 fn get_user_details(_: Request, mut res: Response, params: HashMap<String, String>) {
     res.with_cookie(
         Cookie::new(String::from("Hello"), String::from("world"))
-            .with_http_only(true)
-            .with_secure(true),
+            .http_only()
+            .secure(),
     )
     .text(format!(
         "You were requesting user_id {}",
