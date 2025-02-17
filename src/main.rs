@@ -27,7 +27,7 @@ fn main() {
 }
 
 fn handle_home(req: Request, mut r: Response, _: HashMap<String, String>) {
-    r.file(Path::new("src/public/index.html"));
+    r.file(Path::new("public/index.html"));
 }
 
 fn handle_register(req: Request, mut res: Response, _: HashMap<String, String>) {
