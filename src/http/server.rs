@@ -14,9 +14,9 @@ pub struct Server {
     pub router: Router,
 }
 impl Server {
-    pub fn new(port: &str) -> Server {
+    pub fn new<T: Into<String>>(url: T) -> Server {
         return Server {
-            port: port.to_string(),
+            port: url.into(),
             router: Router::new(),
         };
     }
