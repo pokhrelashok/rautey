@@ -1,4 +1,3 @@
-mod env;
 mod http;
 use dotenvy::var;
 use http::{cookie::Cookie, request::Request, response::Response, server::Server};
@@ -36,12 +35,7 @@ fn handle_register(req: Request, mut res: Response, _: HashMap<String, String>) 
     if let Ok(body) = body {
         if body.files.contains_key("cv") {
             let cv_file = body.files.get("cv").unwrap();
-            cv_file
-                .uploader()
-                .with_filename("test_filename")
-                .with_path("src/storage/test_uploads")
-                .upload()
-                .unwrap();
+            cv_file.uploader().upload().unwrap();
         }
     }
     res.text("Success");

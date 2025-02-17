@@ -1,5 +1,6 @@
 use std::{collections::HashMap, path::Path, vec};
 
+use dotenvy::var;
 use regex::Regex;
 
 use super::{
@@ -140,8 +141,11 @@ impl Router {
     }
 
     fn try_serve_public(&self, request: Request, mut response: Response) {
-        let path = request.path.trim_matches('/');
-        let public_path = format!("src/public/{}", path);
+        let mut public_path = var("APP_PUBLIC_DIR")
+            .unwrap_or("public".to_string())
+            .trim_matches('/')
+            .to_string();
+        public_path.push_str(&request.path);
         response.file(Path::new(&public_path));
     }
 }
