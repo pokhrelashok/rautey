@@ -9,10 +9,10 @@ pub struct Cookie {
 }
 
 impl Cookie {
-    pub fn new(key: String, value: String) -> Self {
+    pub fn new<T: Into<String>, S: Into<String>>(key: T, value: S) -> Self {
         Cookie {
-            key,
-            value,
+            key: key.into(),
+            value: value.into(),
             expires: None,
             secure: false,
             max_age: None,

@@ -1,8 +1,9 @@
-use std::{io::BufReader, net::TcpListener};
+use std::{collections::HashMap, io::BufReader, net::TcpListener};
 
 use crate::http::request::Request;
 
 use super::{
+    middleware::Middleware,
     response::Response,
     router::{RouteHandler, Router},
     HTTPMethod,
@@ -20,24 +21,59 @@ impl Server {
         };
     }
 
-    fn register(&mut self, path: &str, method: HTTPMethod, func: RouteHandler) {
-        self.router.register(path, method, func);
+    fn register(
+        &mut self,
+        path: &str,
+        method: HTTPMethod,
+        func: RouteHandler,
+        middlewares: Vec<String>,
+    ) {
+        self.router.register(path, method, func, middlewares);
     }
 
-    pub fn get(&mut self, path: &str, handler: RouteHandler) {
-        self.register(path, HTTPMethod::GET, handler);
+    pub fn get(&mut self, path: &str, handler: RouteHandler, middlewares: Option<Vec<String>>) {
+        self.register(
+            path,
+            HTTPMethod::GET,
+            handler,
+            middlewares.unwrap_or_default(),
+        );
     }
-    pub fn post(&mut self, path: &str, handler: RouteHandler) {
-        self.register(path, HTTPMethod::POST, handler);
+    pub fn post(&mut self, path: &str, handler: RouteHandler, middlewares: Option<Vec<String>>) {
+        self.register(
+            path,
+            HTTPMethod::POST,
+            handler,
+            middlewares.unwrap_or_default(),
+        );
     }
-    pub fn delete(&mut self, path: &str, handler: RouteHandler) {
-        self.register(path, HTTPMethod::DELETE, handler);
+    pub fn delete(&mut self, path: &str, handler: RouteHandler, middlewares: Option<Vec<String>>) {
+        self.register(
+            path,
+            HTTPMethod::DELETE,
+            handler,
+            middlewares.unwrap_or_default(),
+        );
     }
-    pub fn put(&mut self, path: &str, handler: RouteHandler) {
-        self.register(path, HTTPMethod::PUT, handler);
+    pub fn put(&mut self, path: &str, handler: RouteHandler, middlewares: Option<Vec<String>>) {
+        self.register(
+            path,
+            HTTPMethod::PUT,
+            handler,
+            middlewares.unwrap_or_default(),
+        );
     }
-    pub fn patch(&mut self, path: &str, handler: RouteHandler) {
-        self.register(path, HTTPMethod::PATCH, handler);
+    pub fn patch(&mut self, path: &str, handler: RouteHandler, middlewares: Option<Vec<String>>) {
+        self.register(
+            path,
+            HTTPMethod::PATCH,
+            handler,
+            middlewares.unwrap_or_default(),
+        );
+    }
+
+    pub fn register_middleware<T: Into<String>>(&mut self, name: T, handler: Middleware) {
+        self.router.register_middleware(name.into(), handler);
     }
 
     pub fn listen(&self) {

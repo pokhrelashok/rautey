@@ -46,7 +46,7 @@ impl Request {
             .map(|f| f.unwrap())
             .take_while(|line| !line.is_empty())
             .collect();
-        println!("{:#?}", all_headers);
+
         let mut lines = all_headers.iter();
         let first_line = lines.next().unwrap();
         let mut words = first_line.split_whitespace();

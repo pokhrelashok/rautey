@@ -21,6 +21,7 @@ pub enum HTTPStatus {
     INTERNAL_SERVER_ERROR,
     BAD_GATEWAY,
     SERVICE_UNAVAILABLE,
+    REDIRECT,
 }
 
 impl HTTPStatus {
@@ -35,6 +36,7 @@ impl HTTPStatus {
             HTTPStatus::INTERNAL_SERVER_ERROR => "Internal Server Error",
             HTTPStatus::BAD_GATEWAY => "Bad Gateway",
             HTTPStatus::SERVICE_UNAVAILABLE => "Service Unavailable",
+            HTTPStatus::REDIRECT => "Redirect",
         }
     }
 
@@ -49,6 +51,7 @@ impl HTTPStatus {
             HTTPStatus::INTERNAL_SERVER_ERROR => 500,
             HTTPStatus::BAD_GATEWAY => 502,
             HTTPStatus::SERVICE_UNAVAILABLE => 503,
+            HTTPStatus::REDIRECT => 302,
         }
     }
 }
@@ -66,6 +69,7 @@ impl Display for HTTPMethod {
 
 pub mod cookie;
 pub mod file;
+pub mod middleware;
 mod parsers;
 pub mod request;
 pub mod response;

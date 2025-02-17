@@ -2,7 +2,12 @@ use std::{collections::HashMap, path::Path, vec};
 
 use regex::Regex;
 
-use super::{request::Request, response::Response, HTTPMethod};
+use super::{
+    middleware::{self, Middleware},
+    request::Request,
+    response::{self, Response},
+    HTTPMethod,
+};
 
 fn strip_braces(s: &str) -> &str {
     s.strip_prefix('{')
@@ -12,12 +17,14 @@ fn strip_braces(s: &str) -> &str {
 
 pub struct Router {
     pub routes: Box<RouteTree>,
+    pub middlewares: HashMap<String, Middleware>,
 }
 #[derive(Debug)]
 pub struct RouteTree {
     path: String,
     handlers: HashMap<HTTPMethod, RouteHandler>,
     children: Vec<Box<RouteTree>>,
+    middlewares: Vec<String>,
 }
 
 pub type RouteHandler =
@@ -26,15 +33,23 @@ pub type RouteHandler =
 impl Router {
     pub fn new() -> Router {
         Router {
+            middlewares: HashMap::new(),
             routes: Box::new(RouteTree {
                 path: String::new(),
                 handlers: HashMap::new(),
                 children: vec![],
+                middlewares: vec![],
             }),
         }
     }
 
-    pub fn register(&mut self, path: &str, method: HTTPMethod, func: RouteHandler) {
+    pub fn register(
+        &mut self,
+        path: &str,
+        method: HTTPMethod,
+        handler: RouteHandler,
+        middlewares: Vec<String>,
+    ) {
         let path = path.trim_matches('/');
         let mut route_path = &mut self.routes;
         if path.len() > 0 {
@@ -50,6 +65,7 @@ impl Router {
                     route_path.children.push(Box::new(RouteTree {
                         path: dir.to_string(),
                         children: vec![],
+                        middlewares: middlewares.clone(),
                         handlers: HashMap::new(),
                     }));
 
@@ -57,7 +73,11 @@ impl Router {
                 }
             }
         }
-        route_path.handlers.insert(method, func);
+        route_path.handlers.insert(method, handler);
+    }
+
+    pub fn register_middleware<T: Into<String>>(&mut self, name: T, handler: Middleware) {
+        self.middlewares.insert(name.into(), handler);
     }
 
     pub fn invoke(&self, request: Request, mut response: Response) {
@@ -104,6 +124,11 @@ impl Router {
         }
 
         if found && (current_path.handlers.contains_key(&request.method)) {
+            for middleware in &current_path.middlewares {
+                if let Some(handler) = self.middlewares.get(middleware) {
+                    handler(&request, &mut response, &dyn_route_params);
+                }
+            }
             current_path.handlers.get(&request.method).unwrap()(
                 request,
                 response,

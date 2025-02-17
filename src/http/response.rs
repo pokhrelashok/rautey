@@ -25,36 +25,37 @@ impl Response {
         };
     }
 
-    pub fn with_status(mut self, status: HTTPStatus) -> Response {
+    pub fn with_status(&mut self, status: HTTPStatus) -> &mut Self {
         self.status = status;
         self
     }
 
     pub fn with_headers<T: Into<String>, S: Into<String>>(
-        mut self,
+        &mut self,
         headers: HashMap<T, S>,
-    ) -> Response {
+    ) -> &mut Self {
         for (k, v) in headers {
             self.headers.insert(k.into(), v.into());
         }
         self
     }
 
-    pub fn with_header<T: Into<String>, S: Into<String>>(mut self, key: T, value: S) -> Response {
+    pub fn with_header<T: Into<String>, S: Into<String>>(&mut self, key: T, value: S) -> &mut Self {
         self.headers.insert(key.into(), value.into());
         self
     }
 
-    pub fn with_cookie(mut self, cookie: Cookie) -> Response {
+    pub fn with_cookie(&mut self, cookie: Cookie) -> &mut Self {
         self.cookies.push(cookie);
         self
     }
-    pub fn with_cookies(mut self, mut cookies: Vec<Cookie>) -> Response {
+
+    pub fn with_cookies(&mut self, mut cookies: Vec<Cookie>) -> &mut Self {
         self.cookies.append(&mut cookies);
         self
     }
 
-    pub fn not_found(mut self) {
+    pub fn not_found(&mut self) {
         self.status = HTTPStatus::NOT_FOUND;
         self.respond(b"", "text/plain");
     }
@@ -85,15 +86,15 @@ impl Response {
         self.stream.write_all(content).unwrap();
     }
 
-    pub fn json<T: AsRef<str>>(mut self, json: T) {
+    pub fn json<T: AsRef<str>>(&mut self, json: T) {
         self.respond(json.as_ref().as_bytes(), "application/json");
     }
 
-    pub fn text<T: AsRef<str>>(mut self, text: T) {
+    pub fn text<T: AsRef<str>>(&mut self, text: T) {
         self.respond(text.as_ref().as_bytes(), "text/plain");
     }
 
-    pub fn file(mut self, path: &Path) {
+    pub fn file(&mut self, path: &Path) {
         if let Ok(mut file) = File::open(path) {
             let mut contents = Vec::new();
             file.read_to_end(&mut contents)
@@ -112,5 +113,11 @@ impl Response {
         } else {
             self.not_found();
         }
+    }
+
+    pub fn redirect<T: AsRef<str>>(&mut self, to: T) {
+        self.with_status(HTTPStatus::REDIRECT)
+            .with_header("Location", to.as_ref())
+            .text("");
     }
 }

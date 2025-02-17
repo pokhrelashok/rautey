@@ -1,25 +1,28 @@
 mod http;
 use http::{cookie::Cookie, request::Request, response::Response, server::Server};
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, path::Path, thread, time::Duration};
-fn default_gender() -> String {
-    "Male".to_string()
-}
+use std::{collections::HashMap, path::Path};
+
 #[derive(Serialize, Deserialize, Debug)]
 
 struct RegisterForm {
     name: String,
     email: String,
     age: String,
-    #[serde(default = "default_gender")]
-    gender: String,
 }
 
 fn main() {
     let mut server = Server::new("8090");
-    server.get("/", handle_home);
-    server.post("/api/users/{id}", get_user_details);
-    server.post("/api/register", handle_register);
+    server.register_middleware("admin-only", admin_only_middleware);
+
+    server.get("/", handle_home, None);
+    server.post("/api/users/{id}", get_user_details, None);
+    server.post("/api/register", handle_register, None);
+    server.get(
+        "/admin",
+        handle_admin_route,
+        Some(vec!["admin-only".to_string()]),
+    );
     server.listen();
 }
 
@@ -53,4 +56,11 @@ fn get_user_details(_: Request, mut res: Response, params: HashMap<String, Strin
         "You were requesting user_id {}",
         params.get("id").unwrap()
     ));
+}
+
+fn handle_admin_route(req: Request, mut res: Response, _: HashMap<String, String>) {
+    res.text("Welcome to admint dashboard");
+}
+fn admin_only_middleware(req: &Request, res: &mut Response, _: &HashMap<String, String>) {
+    res.redirect("/");
 }
