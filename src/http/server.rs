@@ -1,4 +1,4 @@
-use std::{collections::HashMap, io::BufReader, net::TcpListener};
+use std::{error::Error, io::BufReader, net::TcpListener};
 
 use crate::http::request::Request;
 
@@ -76,16 +76,16 @@ impl Server {
         self.router.register_middleware(name.into(), handler);
     }
 
-    pub fn listen(&self) {
+    pub fn listen(&self) -> Result<(), Box<dyn Error>> {
         println!("Server started on port {}", self.port);
-        let listener = TcpListener::bind(format!("127.0.0.1:{}", self.port))
-            .expect(format!("Port {} is already in use", self.port).as_str());
+        let listener = TcpListener::bind(format!("127.0.0.1:{}", self.port))?;
         for stream in listener.incoming() {
             let stream = stream.unwrap();
             let buf_reader = BufReader::new(&stream);
             let request = Request::parse(buf_reader);
             println!("{} request at {}", request.method, request.path);
-            self.router.invoke(request, Response::new(stream))
+            self.router.invoke(request, Response::new(stream));
         }
+        Ok(())
     }
 }

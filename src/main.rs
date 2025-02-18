@@ -23,7 +23,7 @@ fn main() {
         handle_admin_route,
         Some(vec!["admin-only".to_string()]),
     );
-    server.listen();
+    server.listen().expect("Could not bind port");
 }
 
 fn handle_home(req: Request, mut r: Response, _: HashMap<String, String>) {

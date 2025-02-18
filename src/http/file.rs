@@ -6,6 +6,8 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
+use super::storage::Storage;
+
 #[derive(Debug)]
 pub struct UploadedFile {
     pub filename: String,
@@ -52,26 +54,8 @@ impl<'a> Uploader<'a> {
             })
             .to_string();
         let file_path = format!("{}/{}.{}", base_path, file_name, self.file.extension);
-        upload_file(file_path, &self.file.content)
+        Storage::upload(&self.file.content, file_path)
     }
-}
-
-fn upload_file(file_path: String, content: &[u8]) -> Result<(), Box<dyn Error>> {
-    let parent_dir = Path::new(&file_path).parent().ok_or("Invalid file path")?;
-    if !parent_dir.exists() {
-        std::fs::create_dir_all(parent_dir)?;
-    }
-
-    let file = OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .open(&file_path)?;
-
-    let mut writer = BufWriter::new(file);
-    writer.write_all(content)?;
-    writer.flush()?;
-
-    Ok(())
 }
 
 impl UploadedFile {
