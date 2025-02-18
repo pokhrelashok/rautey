@@ -1,4 +1,8 @@
-use std::{collections::HashMap, path::Path, vec};
+use std::{
+    collections::{HashMap, HashSet},
+    path::Path,
+    vec,
+};
 
 use dotenvy::var;
 use regex::Regex;
@@ -29,24 +33,17 @@ pub struct RouteTree {
     middlewares: Vec<String>,
 }
 
-fn merge_trees(target: &mut RouteTree, source: RouteTree) {
-    for (method, handler) in source.handlers {
-        target.handlers.insert(method, handler);
-    }
-
-    for middleware in source.middlewares {
-        if !target.middlewares.contains(&middleware) {
-            target.middlewares.push(middleware);
-        }
-    }
-
+fn merge_trees(target: &mut RouteTree, source: RouteTree, middlewares: &Vec<String>) {
     for mut source_child in source.children {
+        source_child
+            .middlewares
+            .append(middlewares.clone().as_mut());
         if let Some(target_child) = target
             .children
             .iter_mut()
             .find(|child| child.path == source_child.path)
         {
-            merge_trees(target_child, *source_child);
+            merge_trees(target_child, *source_child, &middlewares);
         } else {
             target.children.push(source_child);
         }
@@ -54,8 +51,8 @@ fn merge_trees(target: &mut RouteTree, source: RouteTree) {
 }
 
 impl RouteTree {
-    pub fn extend(&mut self, tree: Box<RouteTree>) {
-        merge_trees(self, *tree);
+    pub fn extend(&mut self, tree: Box<RouteTree>, middlewares: &Vec<String>) {
+        merge_trees(self, *tree, middlewares);
     }
 }
 
@@ -76,17 +73,14 @@ impl Router {
         }
     }
 
-    pub fn new_with_prefix<T: Into<String>>(prefix: T) -> Self {
-        Router {
-            middlewares: HashMap::new(),
-            prefix: prefix.into(),
-            routes: Box::new(RouteTree {
-                path: String::new(),
-                handlers: HashMap::new(),
-                children: vec![],
-                middlewares: vec![],
-            }),
-        }
+    pub fn with_prefix<T: Into<String>>(&mut self, prefix: T) -> &mut Self {
+        let path: String = prefix.into();
+        self.prefix = path;
+        self
+    }
+    pub fn with_middlewares(&mut self, middlewares: Vec<String>) -> &mut Self {
+        self.routes.middlewares = middlewares;
+        self
     }
 
     pub fn get(&mut self, path: &str, handler: RouteHandler, middlewares: Option<Vec<String>>) {
@@ -130,11 +124,18 @@ impl Router {
         );
     }
 
-    pub fn group<T: AsRef<str>, F: FnOnce(&mut Router)>(&mut self, path: T, configure: F) {
+    pub fn group<T: AsRef<str>, F: FnOnce(&mut Router)>(
+        &mut self,
+        path: T,
+        middlewares: Option<Vec<String>>,
+        configure: F,
+    ) {
         let prefix = path.as_ref().to_string();
-        let mut sub_router = Router::new_with_prefix(prefix);
+        let mut sub_router = Router::new();
+        sub_router.with_prefix(prefix);
         configure(&mut sub_router);
-        self.routes.extend(sub_router.routes);
+        self.routes
+            .extend(sub_router.routes, &middlewares.unwrap_or_else(|| vec![]));
     }
 
     pub fn register(
@@ -192,6 +193,7 @@ impl Router {
         let mut found = true;
         let mut was_wildcard = false;
         let mut dyn_route_params: HashMap<String, String> = HashMap::new();
+        let mut middlewares: Vec<String> = vec![];
 
         if path.len() > 0 {
             let param_reg = Regex::new(r"\{(\w+)\}").unwrap();
@@ -202,6 +204,7 @@ impl Router {
 
                 if let Some(index) = existing_index {
                     current_path = current_path.children.get(index).unwrap();
+                    middlewares.append(current_path.middlewares.clone().as_mut());
                     if current_path.path == "*" {
                         was_wildcard = true
                     } else if param_reg.is_match(&current_path.path) {
@@ -228,9 +231,11 @@ impl Router {
             }
         }
 
+        let unique_middlewares: HashSet<String> = HashSet::from_iter(middlewares);
+
         if found && (current_path.handlers.contains_key(&request.method)) {
-            for middleware in &current_path.middlewares {
-                if let Some(handler) = self.middlewares.get(middleware) {
+            for middleware in unique_middlewares {
+                if let Some(handler) = self.middlewares.get(&middleware) {
                     handler(&request, &mut response, &dyn_route_params);
                 }
             }

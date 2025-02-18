@@ -15,17 +15,20 @@ fn main() {
     let mut server = Server::new(var("APP_PORT").unwrap());
     server
         .router
-        .register_middleware("admin-only", admin_only_middleware);
-    server.router.group("/api", |router: &mut Router| {
-        router.get("/", handle_home, None);
-        router.get("/users/{id}", get_user_details, None);
-        router.post("/register", handle_register, None);
-        router.get(
-            "/admin",
-            handle_admin_route,
-            Some(vec!["admin-only".to_string()]),
-        );
-    });
+        .register_middleware("middleware-1", middleware_1);
+    server
+        .router
+        .register_middleware("middleware-2", middleware_2);
+    server.router.group(
+        "/api",
+        Some(vec![String::from("middleware-1")]),
+        |router: &mut Router| {
+            router.get("/", handle_home, Some(vec![String::from("middleware-2")]));
+            router.get("/users/{id}", get_user_details, None);
+            router.post("/register", handle_register, None);
+            router.get("/admin", handle_admin_route, None);
+        },
+    );
     server.listen().expect("Could not bind port");
 }
 
@@ -45,12 +48,7 @@ fn handle_register(req: Request, mut res: Response, _: HashMap<String, String>) 
 }
 
 fn get_user_details(_: Request, mut res: Response, params: HashMap<String, String>) {
-    res.with_cookie(
-        Cookie::new(String::from("Hello"), String::from("world"))
-            .http_only()
-            .secure(),
-    )
-    .text(format!(
+    res.text(format!(
         "You were requesting user_id {}",
         params.get("id").unwrap()
     ));
@@ -59,6 +57,10 @@ fn get_user_details(_: Request, mut res: Response, params: HashMap<String, Strin
 fn handle_admin_route(req: Request, mut res: Response, _: HashMap<String, String>) {
     res.text("Welcome to admint dashboard");
 }
-fn admin_only_middleware(req: &Request, res: &mut Response, _: &HashMap<String, String>) {
-    res.redirect("/api/users/112");
+fn middleware_1(req: &Request, res: &mut Response, _: &HashMap<String, String>) {
+    res.with_cookie(Cookie::new("1", "1"));
+}
+
+fn middleware_2(req: &Request, res: &mut Response, _: &HashMap<String, String>) {
+    res.with_cookie(Cookie::new("2", "2"));
 }
