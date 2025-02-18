@@ -19,6 +19,7 @@ fn strip_braces(s: &str) -> &str {
 pub struct Router {
     pub routes: Box<RouteTree>,
     pub middlewares: HashMap<String, Middleware>,
+    prefix: String,
 }
 #[derive(Debug)]
 pub struct RouteTree {
@@ -28,6 +29,36 @@ pub struct RouteTree {
     middlewares: Vec<String>,
 }
 
+fn merge_trees(target: &mut RouteTree, source: RouteTree) {
+    for (method, handler) in source.handlers {
+        target.handlers.insert(method, handler);
+    }
+
+    for middleware in source.middlewares {
+        if !target.middlewares.contains(&middleware) {
+            target.middlewares.push(middleware);
+        }
+    }
+
+    for mut source_child in source.children {
+        if let Some(target_child) = target
+            .children
+            .iter_mut()
+            .find(|child| child.path == source_child.path)
+        {
+            merge_trees(target_child, *source_child);
+        } else {
+            target.children.push(source_child);
+        }
+    }
+}
+
+impl RouteTree {
+    pub fn extend(&mut self, tree: Box<RouteTree>) {
+        merge_trees(self, *tree);
+    }
+}
+
 pub type RouteHandler =
     fn(request: Request, response: Response, route_values: HashMap<String, String>);
 
@@ -35,6 +66,7 @@ impl Router {
     pub fn new() -> Router {
         Router {
             middlewares: HashMap::new(),
+            prefix: String::new(),
             routes: Box::new(RouteTree {
                 path: String::new(),
                 handlers: HashMap::new(),
@@ -44,6 +76,67 @@ impl Router {
         }
     }
 
+    pub fn new_with_prefix<T: Into<String>>(prefix: T) -> Self {
+        Router {
+            middlewares: HashMap::new(),
+            prefix: prefix.into(),
+            routes: Box::new(RouteTree {
+                path: String::new(),
+                handlers: HashMap::new(),
+                children: vec![],
+                middlewares: vec![],
+            }),
+        }
+    }
+
+    pub fn get(&mut self, path: &str, handler: RouteHandler, middlewares: Option<Vec<String>>) {
+        self.register(
+            path,
+            HTTPMethod::GET,
+            handler,
+            middlewares.unwrap_or_default(),
+        );
+    }
+    pub fn post(&mut self, path: &str, handler: RouteHandler, middlewares: Option<Vec<String>>) {
+        self.register(
+            path,
+            HTTPMethod::POST,
+            handler,
+            middlewares.unwrap_or_default(),
+        );
+    }
+    pub fn delete(&mut self, path: &str, handler: RouteHandler, middlewares: Option<Vec<String>>) {
+        self.register(
+            path,
+            HTTPMethod::DELETE,
+            handler,
+            middlewares.unwrap_or_default(),
+        );
+    }
+    pub fn put(&mut self, path: &str, handler: RouteHandler, middlewares: Option<Vec<String>>) {
+        self.register(
+            path,
+            HTTPMethod::PUT,
+            handler,
+            middlewares.unwrap_or_default(),
+        );
+    }
+    pub fn patch(&mut self, path: &str, handler: RouteHandler, middlewares: Option<Vec<String>>) {
+        self.register(
+            path,
+            HTTPMethod::PATCH,
+            handler,
+            middlewares.unwrap_or_default(),
+        );
+    }
+
+    pub fn group<T: AsRef<str>, F: FnOnce(&mut Router)>(&mut self, path: T, configure: F) {
+        let prefix = path.as_ref().to_string();
+        let mut sub_router = Router::new_with_prefix(prefix);
+        configure(&mut sub_router);
+        self.routes.extend(sub_router.routes);
+    }
+
     pub fn register(
         &mut self,
         path: &str,
@@ -51,7 +144,18 @@ impl Router {
         handler: RouteHandler,
         middlewares: Vec<String>,
     ) {
-        let path = path.trim_matches('/');
+        let prefix = self.prefix.trim_matches('/');
+        let clean_path = path.trim_matches('/');
+        let path = format!(
+            "{}{}{}",
+            prefix,
+            if prefix.len() > 0 && clean_path.len() > 0 {
+                "/"
+            } else {
+                ""
+            },
+            clean_path
+        );
         let mut route_path = &mut self.routes;
         if path.len() > 0 {
             for dir in path.split('/') {

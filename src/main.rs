@@ -1,6 +1,6 @@
 mod http;
 use dotenvy::var;
-use http::{cookie::Cookie, request::Request, response::Response, server::Server};
+use http::{cookie::Cookie, request::Request, response::Response, router::Router, server::Server};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, path::Path};
 #[derive(Serialize, Deserialize, Debug)]
@@ -13,16 +13,19 @@ struct RegisterForm {
 
 fn main() {
     let mut server = Server::new(var("APP_PORT").unwrap());
-    server.register_middleware("admin-only", admin_only_middleware);
-
-    server.get("/", handle_home, None);
-    server.get("/api/users/{id}", get_user_details, None);
-    server.post("/api/register", handle_register, None);
-    server.get(
-        "/admin",
-        handle_admin_route,
-        Some(vec!["admin-only".to_string()]),
-    );
+    server
+        .router
+        .register_middleware("admin-only", admin_only_middleware);
+    server.router.group("/api", |router: &mut Router| {
+        router.get("/", handle_home, None);
+        router.get("/users/{id}", get_user_details, None);
+        router.post("/register", handle_register, None);
+        router.get(
+            "/admin",
+            handle_admin_route,
+            Some(vec!["admin-only".to_string()]),
+        );
+    });
     server.listen().expect("Could not bind port");
 }
 

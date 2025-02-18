@@ -1,4 +1,4 @@
-use std::{error::Error, io::BufReader, net::TcpListener};
+use std::{error::Error, io::BufReader, net::TcpListener, ops::DerefMut};
 
 use crate::http::request::Request;
 
@@ -29,51 +29,6 @@ impl Server {
         middlewares: Vec<String>,
     ) {
         self.router.register(path, method, func, middlewares);
-    }
-
-    pub fn get(&mut self, path: &str, handler: RouteHandler, middlewares: Option<Vec<String>>) {
-        self.register(
-            path,
-            HTTPMethod::GET,
-            handler,
-            middlewares.unwrap_or_default(),
-        );
-    }
-    pub fn post(&mut self, path: &str, handler: RouteHandler, middlewares: Option<Vec<String>>) {
-        self.register(
-            path,
-            HTTPMethod::POST,
-            handler,
-            middlewares.unwrap_or_default(),
-        );
-    }
-    pub fn delete(&mut self, path: &str, handler: RouteHandler, middlewares: Option<Vec<String>>) {
-        self.register(
-            path,
-            HTTPMethod::DELETE,
-            handler,
-            middlewares.unwrap_or_default(),
-        );
-    }
-    pub fn put(&mut self, path: &str, handler: RouteHandler, middlewares: Option<Vec<String>>) {
-        self.register(
-            path,
-            HTTPMethod::PUT,
-            handler,
-            middlewares.unwrap_or_default(),
-        );
-    }
-    pub fn patch(&mut self, path: &str, handler: RouteHandler, middlewares: Option<Vec<String>>) {
-        self.register(
-            path,
-            HTTPMethod::PATCH,
-            handler,
-            middlewares.unwrap_or_default(),
-        );
-    }
-
-    pub fn register_middleware<T: Into<String>>(&mut self, name: T, handler: Middleware) {
-        self.router.register_middleware(name.into(), handler);
     }
 
     pub fn listen(&self) -> Result<(), Box<dyn Error>> {

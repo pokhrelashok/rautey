@@ -95,21 +95,25 @@ impl Response {
     }
 
     pub fn file(&mut self, path: &Path) {
-        if let Ok(mut file) = File::open(path) {
-            let mut contents = Vec::new();
-            file.read_to_end(&mut contents)
-                .expect("Failed to read file");
-            let content_type = match path.extension().and_then(|ext| ext.to_str()) {
-                Some("html") => "text/html",
-                Some("css") => "text/css",
-                Some("js") => "application/javascript",
-                Some("json") => "application/json",
-                Some("png") => "image/png",
-                Some("jpg") | Some("jpeg") => "image/jpeg",
-                Some("pdf") => "application/pdf",
-                _ => "application/octet-stream",
-            };
-            self.respond(&contents, content_type);
+        if path.is_file() && path.exists() {
+            if let Ok(mut file) = File::open(path) {
+                let mut contents = Vec::new();
+                file.read_to_end(&mut contents)
+                    .expect("Failed to read file");
+                let content_type = match path.extension().and_then(|ext| ext.to_str()) {
+                    Some("html") => "text/html",
+                    Some("css") => "text/css",
+                    Some("js") => "application/javascript",
+                    Some("json") => "application/json",
+                    Some("png") => "image/png",
+                    Some("jpg") | Some("jpeg") => "image/jpeg",
+                    Some("pdf") => "application/pdf",
+                    _ => "application/octet-stream",
+                };
+                self.respond(&contents, content_type);
+            } else {
+                self.not_found();
+            }
         } else {
             self.not_found();
         }
