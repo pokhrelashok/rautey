@@ -6,6 +6,7 @@ pub struct Cookie {
     pub secure: bool,
     pub max_age: Option<u64>,
     pub http_only: bool,
+    pub path: String,
 }
 
 impl Cookie {
@@ -17,6 +18,7 @@ impl Cookie {
             secure: false,
             max_age: None,
             http_only: false,
+            path: "/".to_string(),
         }
     }
 
@@ -37,6 +39,10 @@ impl Cookie {
 
     pub fn http_only(mut self) -> Self {
         self.http_only = true;
+        self
+    }
+    pub fn with_path(mut self, path: String) -> Self {
+        self.path = path;
         self
     }
 }
@@ -61,6 +67,7 @@ impl ToString for Cookie {
             cookie_string.push_str("; HttpOnly");
         }
 
+        cookie_string.push_str(&format!("; Path={}", self.path));
         cookie_string
     }
 }

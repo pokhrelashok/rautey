@@ -10,6 +10,8 @@ use serde_json::Error;
 use super::{
     file::UploadedFile,
     parsers::{parse_multipart_form_data, parse_url_encoded},
+    session::Session,
+    utils::uuid,
     HTTPMethod,
 };
 #[derive(Debug)]
@@ -29,6 +31,8 @@ pub struct Request {
     pub body: Vec<u8>,
     pub query: HashMap<String, String>,
     pub headers: HashMap<String, String>,
+    pub session: Session,
+    pub cookies: HashMap<String, String>,
 }
 
 impl Request {
@@ -94,6 +98,22 @@ impl Request {
             }
         }
 
+        // extract cookies
+        let cookies = if headers.contains_key("Cookie") {
+            parse_cookies(headers.get("Cookie").unwrap())
+        } else {
+            HashMap::new()
+        };
+
+        // extract session
+        let mut session = if cookies.contains_key("session_id") {
+            Session::new(cookies.get("session_id").unwrap())
+        } else {
+            Session::new(uuid())
+        };
+
+        session.init().unwrap();
+
         Request {
             method,
             uri,
@@ -101,6 +121,8 @@ impl Request {
             query,
             path,
             headers,
+            cookies,
+            session,
         }
     }
 
@@ -159,17 +181,14 @@ impl Request {
             });
         }
     }
-
-    pub fn cookies(&self) -> HashMap<String, String> {
-        let mut cookies = HashMap::new();
-        if let Some(cooks) = self.headers.get("Cookie") {
-            for cookie_line in cooks.split(";") {
-                let (k, v) = cookie_line.split_once("=").unwrap_or_default();
-                if k.len() > 0 {
-                    cookies.insert(k.to_string(), v.to_string());
-                }
-            }
+}
+fn parse_cookies<T: AsRef<str>>(cookie: T) -> HashMap<String, String> {
+    let mut cookies = HashMap::new();
+    for cookie_line in cookie.as_ref().split(";") {
+        let (k, v) = cookie_line.split_once("=").unwrap_or_default();
+        if k.len() > 0 {
+            cookies.insert(k.trim().to_string(), v.trim().to_string());
         }
-        cookies
     }
+    cookies
 }

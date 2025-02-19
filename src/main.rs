@@ -15,6 +15,9 @@ fn main() {
     let mut server = Server::new(var("APP_PORT").unwrap());
     server
         .router
+        .register_middleware("session", session_handler);
+    server
+        .router
         .register_middleware("middleware-1", middleware_1);
     server
         .router
@@ -24,7 +27,7 @@ fn main() {
         .register_middleware("middleware-3", middleware_3);
     server.router.group(
         "/api",
-        Some(&[String::from("middleware-1")]),
+        Some(&[String::from("session")]),
         |router: &mut Router| {
             router.get(
                 "/",
@@ -43,7 +46,6 @@ fn main() {
             );
         },
     );
-    println!("{:#?}", server.router.routes);
     server.listen().expect("Could not bind port");
 }
 
@@ -51,6 +53,10 @@ fn handle_home(req: Request, mut r: Response, _: HashMap<String, String>) {
     r.file(Path::new("public/index.html"));
 }
 fn handle_api_home(req: Request, mut r: Response, _: HashMap<String, String>) {
+    println!(
+        "The user_id is {}",
+        req.session.get::<String>("user_id").unwrap()
+    );
     r.text("Api home");
 }
 
@@ -65,7 +71,8 @@ fn handle_register(req: Request, mut res: Response, _: HashMap<String, String>) 
     res.text("Success");
 }
 
-fn get_user_details(_: Request, mut res: Response, params: HashMap<String, String>) {
+fn get_user_details(mut req: Request, mut res: Response, params: HashMap<String, String>) {
+    req.session.set("user_id", params.get("id").unwrap());
     res.text(format!(
         "You were requesting user_id {}",
         params.get("id").unwrap()
@@ -88,4 +95,8 @@ fn middleware_2(req: &Request, res: &mut Response, _: &HashMap<String, String>) 
 fn middleware_3(req: &Request, res: &mut Response, _: &HashMap<String, String>) {
     println!("3 called");
     res.with_cookie(Cookie::new("3", "3"));
+}
+
+fn session_handler(req: &Request, res: &mut Response, _: &HashMap<String, String>) {
+    res.with_cookie(Cookie::new("session_id", &req.session.id));
 }

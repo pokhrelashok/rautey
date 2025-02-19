@@ -1,6 +1,8 @@
 use std::{error::Error, io::BufReader, net::TcpListener, ops::DerefMut};
 
-use crate::http::request::Request;
+use dotenvy::var;
+
+use crate::http::{pool::ThreadPool, request::Request};
 
 use super::{
     middleware::Middleware,
@@ -34,12 +36,19 @@ impl Server {
     pub fn listen(&self) -> Result<(), Box<dyn Error>> {
         println!("Server started on port {}", self.port);
         let listener = TcpListener::bind(format!("127.0.0.1:{}", self.port))?;
+        // let pool = ThreadPool::new(var("APP_THREADS").unwrap().parse().unwrap());
         for stream in listener.incoming() {
             let stream = stream.unwrap();
             let buf_reader = BufReader::new(&stream);
             let request = Request::parse(buf_reader);
             println!("{} request at {}", request.method, request.path);
             self.router.invoke(request, Response::new(stream));
+            // pool.execute(|| {
+            //     let buf_reader = BufReader::new(&stream);
+            //     let request = Request::parse(buf_reader);
+            //     println!("{} request at {}", request.method, request.path);
+            //     self.router.invoke(request, Response::new(stream));
+            // });
         }
         Ok(())
     }
