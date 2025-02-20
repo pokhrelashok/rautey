@@ -7,6 +7,8 @@ use std::{
 use dotenvy::var;
 use regex::Regex;
 
+use crate::middleware::{self, session_handler};
+
 use super::{middleware::Middleware, request::Request, response::Response, HTTPMethod};
 
 fn strip_braces(s: &str) -> &str {
@@ -18,7 +20,7 @@ fn strip_braces(s: &str) -> &str {
 pub struct Router {
     pub routes: Box<RouteTree>,
     registered_middlewares: HashMap<String, Middleware>,
-    middlewares: Vec<String>,
+    middlewares: HashSet<String>,
     prefix: String,
 }
 #[derive(Debug)]
@@ -26,11 +28,11 @@ pub struct RouteTree {
     path: String,
     handlers: HashMap<HTTPMethod, RouteHandler>,
     children: Vec<Box<RouteTree>>,
-    middlewares: Vec<String>,
+    middlewares: HashSet<String>,
 }
 
 fn merge_trees(target: &mut RouteTree, source: RouteTree) {
-    for mut source_child in source.children {
+    for source_child in source.children {
         if let Some(target_child) = target
             .children
             .iter_mut()
@@ -53,16 +55,22 @@ pub type RouteHandler =
     fn(request: Request, response: Response, route_values: HashMap<String, String>);
 
 impl Router {
+    #[must_use]
     pub fn new() -> Router {
+        let mut registered_middlewares: HashMap<String, Middleware> = HashMap::new();
+        registered_middlewares.insert("session".to_string(), session_handler);
+        let mut middlewares = HashSet::new();
+        middlewares.insert("session".to_string());
+
         Router {
-            registered_middlewares: HashMap::new(),
+            registered_middlewares,
             prefix: String::new(),
-            middlewares: vec![],
+            middlewares,
             routes: Box::new(RouteTree {
                 path: String::new(),
                 handlers: HashMap::new(),
                 children: vec![],
-                middlewares: vec![],
+                middlewares: HashSet::new(),
             }),
         }
     }
@@ -72,8 +80,8 @@ impl Router {
         self
     }
 
-    pub fn with_middlewares(&mut self, middlewares: &[String]) -> &mut Self {
-        self.middlewares = middlewares.to_owned();
+    pub fn with_middlewares(&mut self, middlewares: HashSet<String>) -> &mut Self {
+        self.middlewares = middlewares.iter().cloned().collect();
         self
     }
 
@@ -128,12 +136,11 @@ impl Router {
             .trim_matches('/')
             .to_owned();
         let mut sub_router = Router::new();
-        let mut group_middlewares = middlewares.unwrap_or_default().to_owned();
+        let group_middlewares: HashSet<String> =
+            middlewares.map_or(HashSet::new(), |f| f.iter().cloned().collect());
         let mut middlewares = self.middlewares.clone();
-        middlewares.append(&mut group_middlewares);
-        sub_router
-            .with_prefix(prefix)
-            .with_middlewares(&middlewares);
+        middlewares.extend(group_middlewares);
+        sub_router.with_prefix(prefix).with_middlewares(middlewares);
         configure(&mut sub_router);
         self.routes.extend(sub_router.routes);
     }
@@ -172,7 +179,7 @@ impl Router {
                     route_path = route_path.children.get_mut(index).unwrap();
                 } else {
                     let mut all_middlewares = self.middlewares.clone();
-                    all_middlewares.append(&mut middlewares.clone());
+                    all_middlewares.extend(middlewares.iter().cloned());
                     route_path.children.push(Box::new(RouteTree {
                         path: dir.to_string(),
                         children: vec![],

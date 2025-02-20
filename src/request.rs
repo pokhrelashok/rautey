@@ -4,6 +4,7 @@ use std::{
     net::TcpStream,
 };
 
+use dotenvy::var;
 use serde::Deserialize;
 use serde_json::Error;
 
@@ -105,14 +106,16 @@ impl Request {
             HashMap::new()
         };
 
-        // extract session
-        let mut session = if cookies.contains_key("session_id") {
-            Session::new(cookies.get("session_id").unwrap())
-        } else {
-            Session::new(uuid())
-        };
-
+        let mut session: Session;
+        // if var("SESSION_DRIVER").unwrap() == "file" {
+        let new_id = uuid();
+        let session_id = cookies.get("session_id").unwrap_or(&new_id);
+        session = Session::new(session_id);
         session.init().unwrap();
+        // } else {
+        //     // let session_id = cookies.get("session_id").unwrap_or(&uuid());
+        //     // let session = ;
+        // }
 
         Request {
             method,
