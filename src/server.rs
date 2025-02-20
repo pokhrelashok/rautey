@@ -1,11 +1,8 @@
 use std::{error::Error, io::BufReader, net::TcpListener, ops::DerefMut};
 
-use dotenvy::var;
-
-use crate::http::{pool::ThreadPool, request::Request};
+use crate::request::Request;
 
 use super::{
-    middleware::Middleware,
     response::Response,
     router::{RouteHandler, Router},
     HTTPMethod,
