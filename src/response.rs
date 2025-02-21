@@ -7,7 +7,7 @@ use std::{
 };
 
 use super::{cookie::Cookie, HTTPStatus};
-
+#[derive(Debug)]
 pub struct Response {
     stream: TcpStream,
     headers: HashMap<String, String>,

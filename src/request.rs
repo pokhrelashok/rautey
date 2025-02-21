@@ -8,10 +8,12 @@ use dotenvy::var;
 use serde::Deserialize;
 use serde_json::Error;
 
+use crate::session::{NoSession, SessionBackend, SessionStore};
+
 use super::{
     file::UploadedFile,
     parsers::{parse_multipart_form_data, parse_url_encoded},
-    session::Session,
+    session::FileSession,
     utils::uuid,
     HTTPMethod,
 };
@@ -32,7 +34,7 @@ pub struct Request {
     pub body: Vec<u8>,
     pub query: HashMap<String, String>,
     pub headers: HashMap<String, String>,
-    pub session: Session,
+    pub session: SessionBackend,
     pub cookies: HashMap<String, String>,
 }
 
@@ -51,7 +53,6 @@ impl Request {
             .map(|f| f.unwrap())
             .take_while(|line| !line.is_empty())
             .collect();
-
         let mut lines = all_headers.iter();
         let first_line = lines.next().unwrap();
         let mut words = first_line.split_whitespace();
@@ -106,17 +107,6 @@ impl Request {
             HashMap::new()
         };
 
-        let mut session: Session;
-        // if var("SESSION_DRIVER").unwrap() == "file" {
-        let new_id = uuid();
-        let session_id = cookies.get("session_id").unwrap_or(&new_id);
-        session = Session::new(session_id);
-        session.init().unwrap();
-        // } else {
-        //     // let session_id = cookies.get("session_id").unwrap_or(&uuid());
-        //     // let session = ;
-        // }
-
         Request {
             method,
             uri,
@@ -125,7 +115,7 @@ impl Request {
             path,
             headers,
             cookies,
-            session,
+            session: SessionBackend::NoSession(NoSession {}),
         }
     }
 
