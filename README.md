@@ -1,6 +1,30 @@
 # Rautey
 
-Rautey is a web framework for building fast and secure web applications with Rust.
+Rautey is a little backend framework for building HTTP servers in rust. Rautey has support for route groups, cookies, middlewares, storage and sessions.
+
+## Hello World Example
+
+Here is a basic "Hello World" backend application using the Rautey framework:
+
+```rust
+use rautey::{server::Server,request::Request,response::Response};
+
+async fn hello(_:Request,mut res: Responmse,_: HashMap<String,String>) {
+  res.text("Hello world");
+}
+
+async fn main() {
+  let mut server = Server::new("3000");
+  server.router.get("/",hello,None);
+  server.listen();
+}
+```
+
+This code sets up a simple web server that responds with "Hello, world!" when accessed at the root URL.
+
+## Examples
+
+You can find various examples in the `examples` directory. Each example demonstrates different features and use cases of the Rautey framework.
 
 ## Running the Example
 
