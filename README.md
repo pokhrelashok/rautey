@@ -20,7 +20,7 @@ You may need to configure environment variables. Create a `.env` file in the roo
 # .env
 APP_PORT=8090
 APP_ENV=local
-APP_NAME=paxadi
+APP_NAME=basic
 APP_PUBLIC_DIR=public
 
 SESSION_DRIVER=cookie
