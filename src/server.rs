@@ -25,16 +25,6 @@ impl Server {
         };
     }
 
-    fn register(
-        &mut self,
-        path: &str,
-        method: HTTPMethod,
-        func: RouteHandler,
-        middlewares: Vec<String>,
-    ) {
-        self.router.register(path, method, func, middlewares);
-    }
-
     pub fn listen(&self) -> Result<(), Box<dyn Error>> {
         println!("Server started on port {}", self.port);
         let listener = TcpListener::bind(format!("0.0.0.0:{}", self.port))?;

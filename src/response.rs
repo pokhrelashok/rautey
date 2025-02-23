@@ -50,8 +50,8 @@ impl Response {
         self
     }
 
-    pub fn with_cookies(&mut self, mut cookies: Vec<Cookie>) -> &mut Self {
-        self.cookies.append(&mut cookies);
+    pub fn with_cookies(&mut self, cookies: Vec<Cookie>) -> &mut Self {
+        self.cookies = cookies;
         self
     }
 

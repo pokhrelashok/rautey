@@ -7,20 +7,95 @@ Rautey is a little backend framework for building HTTP servers in rust. Rautey h
 Here is a basic "Hello World" backend application using the Rautey framework:
 
 ```rust
-use rautey::{server::Server,request::Request,response::Response};
+use dotenvy::var;
+use rautey::{request::Request, response::Response, server::Server};
 
-async fn hello(_:Request, mut res: Responmse, _: HashMap<String,String>) {
-  res.text("Hello world");
+fn main() {
+    let mut server = Server::new(var("APP_PORT").unwrap());
+    server.router.get(
+        "/",
+        |_: Request, mut res: Response| {
+            res.text("Hello World");
+        },
+        None,
+    );
+    server.listen().expect("Could not bind port");
 }
 
-async fn main() {
-  let mut server = Server::new("3000");
-  server.router.get("/", hello, None);
-  server.listen();
-}
 ```
 
-This code sets up a simple web server that responds with "Hello, world!" when accessed at the root URL.
+## Features
+
+### 1. Route Params
+
+```rust
+    server.router.get(
+        "/users/{id}",
+        |req: Request, mut r: Response| {
+            r.text(format!(
+                "User id is {}",
+                req.route_params.get("id").unwrap()
+            ));
+        },
+    );
+```
+
+### 2. Route Groups
+
+```rust
+    server.router.group("/api", |router: &mut Router| {
+        router.get("/", handle_api_home, None);
+        router.group("/v2", |router: &mut Router| {
+            router.get("/", handle_v2_home, None);
+        });
+    });
+```
+
+### 3. Middlewares
+
+```rust
+    server
+        .router
+        .register_middleware("is-logged-in", |req: &Request, res: &mut Response| {
+            if !req.cookies.contains_key("auth_token") {
+                res.with_status(rautey::HTTPStatus::UNAUTHORIZED)
+                    .text("Permission denied");
+            }
+        });
+
+    server
+        .router
+        .get("/users/{id}", get_user_details)
+        .with_middlewares(["is-logged-in"]);
+```
+
+### 4. Cookies
+
+```rust
+    server.router.get("/", |req: Request, mut r: Response| {
+        println!("{:?}", req.cookies); //cookies in request
+        // add cookies to response
+        r.with_cookie(Cookie::new("visited", "yes"))
+            .text("Cookies example");
+    });
+```
+
+### 5. Session
+
+Use `File` or `Cookie` based session by updating `SESSION_DRIVER=file` or `SESSION_DRIVER=cookie`
+
+```rust
+    server
+        .router
+        .get("/", |mut req: Request, mut res: Response| {
+            println!(
+                "{:?}",
+                req.session.get::<String>("session_id").unwrap_or_default()
+            );
+            req.session.set("session_id", "1234", &mut res);
+            res.text("Session example");
+        });
+```
 
 ## Examples
 

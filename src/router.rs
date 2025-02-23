@@ -18,20 +18,20 @@ fn strip_braces(s: &str) -> &str {
 }
 
 pub struct Router {
-    pub routes: Box<RouteTree>,
+    pub routes: Box<Route>,
     registered_middlewares: HashMap<String, Middleware>,
     middlewares: HashSet<String>,
     prefix: String,
 }
 #[derive(Debug)]
-pub struct RouteTree {
+pub struct Route {
     path: String,
     handlers: HashMap<HTTPMethod, RouteHandler>,
-    children: Vec<Box<RouteTree>>,
+    children: Vec<Box<Route>>,
     middlewares: HashSet<String>,
 }
 
-fn merge_trees(target: &mut RouteTree, source: RouteTree) {
+fn merge_trees(target: &mut Route, source: Route) {
     for source_child in source.children {
         if let Some(target_child) = target
             .children
@@ -45,9 +45,18 @@ fn merge_trees(target: &mut RouteTree, source: RouteTree) {
     }
 }
 
-impl RouteTree {
-    pub fn extend(&mut self, tree: Box<RouteTree>) {
+impl Route {
+    pub fn extend(&mut self, tree: Box<Route>) {
         merge_trees(self, *tree);
+    }
+
+    pub fn with_middlewares(&mut self, middlewares: impl IntoIterator<Item = impl AsRef<str>>) {
+        let middlewares: HashSet<String> = middlewares
+            .into_iter()
+            .map(|s| s.as_ref().to_string())
+            .into_iter()
+            .collect();
+        self.middlewares.extend(middlewares);
     }
 }
 
@@ -58,17 +67,16 @@ impl Router {
     pub fn new() -> Router {
         let mut registered_middlewares: HashMap<String, Middleware> = HashMap::new();
         let session_driver = var("SESSION_DRIVER").unwrap_or_default();
+        let mut middlewares = HashSet::new();
         if session_driver == "file" {
             registered_middlewares.insert("session".to_string(), session_handler);
+            middlewares.insert("session".to_string());
         }
-        let mut middlewares = HashSet::new();
-        middlewares.insert("session".to_string());
-
         Router {
             registered_middlewares,
             prefix: String::new(),
             middlewares,
-            routes: Box::new(RouteTree {
+            routes: Box::new(Route {
                 path: String::new(),
                 handlers: HashMap::new(),
                 children: vec![],
@@ -82,66 +90,51 @@ impl Router {
         self
     }
 
-    pub fn with_middlewares(&mut self, middlewares: HashSet<String>) -> &mut Self {
-        self.middlewares = middlewares.iter().cloned().collect();
+    pub fn with_middlewares(
+        &mut self,
+        middlewares: impl IntoIterator<Item = impl AsRef<str>>,
+    ) -> &mut Self {
+        let middlewares: HashSet<String> = middlewares
+            .into_iter()
+            .map(|s| s.as_ref().to_string())
+            .collect();
+        self.middlewares.extend(middlewares);
         self
     }
 
-    pub fn get(&mut self, path: &str, handler: RouteHandler, middlewares: Option<Vec<String>>) {
-        self.register(
-            path,
-            HTTPMethod::GET,
-            handler,
-            middlewares.unwrap_or_default(),
-        );
+    pub fn get(&mut self, path: &str, handler: RouteHandler) -> &mut Box<Route> {
+        self.register(path, HTTPMethod::GET, handler)
     }
-    pub fn post(&mut self, path: &str, handler: RouteHandler, middlewares: Option<Vec<String>>) {
-        self.register(
-            path,
-            HTTPMethod::POST,
-            handler,
-            middlewares.unwrap_or_default(),
-        );
+
+    pub fn post(&mut self, path: &str, handler: RouteHandler) -> &mut Box<Route> {
+        self.register(path, HTTPMethod::POST, handler)
     }
-    pub fn delete(&mut self, path: &str, handler: RouteHandler, middlewares: Option<Vec<String>>) {
-        self.register(
-            path,
-            HTTPMethod::DELETE,
-            handler,
-            middlewares.unwrap_or_default(),
-        );
+    pub fn delete(&mut self, path: &str, handler: RouteHandler) -> &mut Box<Route> {
+        self.register(path, HTTPMethod::DELETE, handler)
     }
-    pub fn put(&mut self, path: &str, handler: RouteHandler, middlewares: Option<Vec<String>>) {
-        self.register(
-            path,
-            HTTPMethod::PUT,
-            handler,
-            middlewares.unwrap_or_default(),
-        );
+    pub fn put(&mut self, path: &str, handler: RouteHandler) -> &mut Box<Route> {
+        self.register(path, HTTPMethod::PUT, handler)
     }
-    pub fn patch(&mut self, path: &str, handler: RouteHandler, middlewares: Option<Vec<String>>) {
-        self.register(
-            path,
-            HTTPMethod::PATCH,
-            handler,
-            middlewares.unwrap_or_default(),
-        );
+    pub fn patch(&mut self, path: &str, handler: RouteHandler) -> &mut Box<Route> {
+        self.register(path, HTTPMethod::PATCH, handler)
     }
 
     pub fn group<T: AsRef<str>, F: FnOnce(&mut Router)>(
         &mut self,
         path: T,
-        middlewares: Option<&[String]>,
+        // middlewares: Option<impl IntoIterator<Item = impl AsRef<str>>>,
         configure: F,
     ) {
+        // let middlewares: Vec<String> = middlewares
+        //     .map(|m| m.into_iter().map(|s| s.as_ref().to_string()).collect())
+        //     .unwrap_or_else(Vec::new);
+
         let prefix = format!("{}/{}", self.prefix, path.as_ref())
             .trim_matches('/')
             .to_owned();
         let mut sub_router = Router::new();
-        let group_middlewares: HashSet<String> =
-            middlewares.map_or(HashSet::new(), |f| f.iter().cloned().collect());
-        let mut middlewares = self.middlewares.clone();
-        middlewares.extend(group_middlewares);
+        // let group_middlewares: HashSet<String> = middlewares.into_iter().collect();
+        let middlewares = self.middlewares.clone();
         sub_router.with_prefix(prefix).with_middlewares(middlewares);
         configure(&mut sub_router);
         self.routes.extend(sub_router.routes);
@@ -152,8 +145,7 @@ impl Router {
         path: &str,
         method: HTTPMethod,
         handler: RouteHandler,
-        middlewares: Vec<String>,
-    ) {
+    ) -> &mut Box<Route> {
         let prefix = self.prefix.trim_matches('/');
         let clean_path = path.trim_matches('/');
         let path = format!(
@@ -180,9 +172,8 @@ impl Router {
                 if let Some(index) = existing_index {
                     route_path = route_path.children.get_mut(index).unwrap();
                 } else {
-                    let mut all_middlewares = self.middlewares.clone();
-                    all_middlewares.extend(middlewares.iter().cloned());
-                    route_path.children.push(Box::new(RouteTree {
+                    let all_middlewares = self.middlewares.clone();
+                    route_path.children.push(Box::new(Route {
                         path: dir.to_string(),
                         children: vec![],
                         middlewares: all_middlewares,
@@ -194,6 +185,7 @@ impl Router {
             }
         }
         route_path.handlers.insert(method, handler);
+        route_path
     }
 
     pub fn register_middleware<T: Into<String>>(&mut self, name: T, handler: Middleware) {
