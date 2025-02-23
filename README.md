@@ -80,10 +80,6 @@ server.router.get("/", |req: Request, mut r: Response| {
 });
 ```
 
-### 5. Public Files Server
-
-Public files stored in the `public` dir are served by default. This can be updated by updating `APP_PUBLIC_DIR` .env variable.
-
 ### 5. Session
 
 Use `File` or `Cookie` based session by updating `SESSION_DRIVER=file` or `SESSION_DRIVER=cookie`
@@ -100,6 +96,10 @@ server
         res.text("Session example");
     });
 ```
+
+### 6. Public Files Server
+
+Public files stored in the `public` dir are served by default. This can be updated by updating `APP_PUBLIC_DIR` .env variable.
 
 ## Examples
 
