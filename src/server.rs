@@ -57,7 +57,7 @@ impl Server {
             }
             session.init(&request).unwrap();
             request.session = session;
-            log(format!("{} request at {}", request.method, request.path));
+            log(format!("{} request at {}", request.method, request.path))?;
             self.router.invoke(request, response);
             // pool.execute(|| {
             //     let buf_reader = BufReader::new(&stream);

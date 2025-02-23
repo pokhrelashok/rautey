@@ -3,7 +3,7 @@ use rautey::{
     request::Request, response::Response, router::Router, server::Server, session::SessionStore,
 };
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, path::Path};
+use std::path::Path;
 #[derive(Serialize, Deserialize, Debug)]
 
 struct RegisterForm {
@@ -30,10 +30,10 @@ fn main() {
     server.listen().expect("Could not bind port");
 }
 
-fn handle_home(req: Request, mut r: Response, _: HashMap<String, String>) {
+fn handle_home(_: Request, mut r: Response) {
     r.file(Path::new("public/index.html"));
 }
-fn handle_api_home(req: Request, mut r: Response, _: HashMap<String, String>) {
+fn handle_api_home(req: Request, mut r: Response) {
     println!(
         "The user_id is {}",
         req.session.get::<String>("user_id").unwrap()
@@ -41,7 +41,7 @@ fn handle_api_home(req: Request, mut r: Response, _: HashMap<String, String>) {
     r.text("Api home");
 }
 
-fn handle_register(req: Request, mut res: Response, _: HashMap<String, String>) {
+fn handle_register(req: Request, mut res: Response) {
     let body = req.parse_body::<RegisterForm>();
     if let Ok(body) = body {
         if body.files.contains_key("cv") {
@@ -52,15 +52,15 @@ fn handle_register(req: Request, mut res: Response, _: HashMap<String, String>) 
     res.text("Success");
 }
 
-fn get_user_details(mut req: Request, mut res: Response, params: HashMap<String, String>) {
+fn get_user_details(mut req: Request, mut res: Response) {
     req.session
-        .set("user_id", params.get("id").unwrap(), &mut res);
+        .set("user_id", req.route_params.get("id").unwrap(), &mut res);
     res.text(format!(
         "You were requesting user_id {}",
-        params.get("id").unwrap()
+        req.route_params.get("id").unwrap()
     ));
 }
 
-fn handle_admin_route(req: Request, mut res: Response, _: HashMap<String, String>) {
+fn handle_admin_route(_: Request, mut res: Response) {
     res.text("Welcome to admint dashboard");
 }

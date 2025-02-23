@@ -34,6 +34,7 @@ pub struct Request {
     pub body: Vec<u8>,
     pub query: HashMap<String, String>,
     pub headers: HashMap<String, String>,
+    pub route_params: HashMap<String, String>,
     pub session: SessionBackend,
     pub cookies: HashMap<String, String>,
 }
@@ -115,6 +116,7 @@ impl Request {
             path,
             headers,
             cookies,
+            route_params: HashMap::new(),
             session: SessionBackend::NoSession(NoSession {}),
         }
     }

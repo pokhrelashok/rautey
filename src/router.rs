@@ -51,8 +51,7 @@ impl RouteTree {
     }
 }
 
-pub type RouteHandler =
-    fn(request: Request, response: Response, route_values: HashMap<String, String>);
+pub type RouteHandler = fn(request: Request, response: Response);
 
 impl Router {
     #[must_use]
@@ -201,7 +200,7 @@ impl Router {
         self.registered_middlewares.insert(name.into(), handler);
     }
 
-    pub fn invoke(&self, request: Request, mut response: Response) {
+    pub fn invoke(&self, mut request: Request, mut response: Response) {
         let path = request.path.trim_matches('/');
 
         let mut current_path = &self.routes;
@@ -233,6 +232,8 @@ impl Router {
             }
         }
 
+        request.route_params = dyn_route_params;
+
         if found && !current_path.handlers.contains_key(&request.method) {
             let has_wildcard = current_path
                 .children
@@ -247,14 +248,10 @@ impl Router {
         if found && (current_path.handlers.contains_key(&request.method)) {
             for middleware in &current_path.middlewares {
                 if let Some(handler) = self.registered_middlewares.get(middleware) {
-                    handler(&request, &mut response, &dyn_route_params);
+                    handler(&request, &mut response);
                 }
             }
-            current_path.handlers.get(&request.method).unwrap()(
-                request,
-                response,
-                dyn_route_params,
-            );
+            current_path.handlers.get(&request.method).unwrap()(request, response);
         } else {
             self.try_serve_public(request, response);
         }
