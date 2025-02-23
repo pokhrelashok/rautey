@@ -69,6 +69,7 @@ impl Display for HTTPMethod {
 
 pub mod cookie;
 pub mod file;
+pub mod logging;
 pub mod middleware;
 mod parsers;
 mod pool;

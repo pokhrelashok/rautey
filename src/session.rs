@@ -134,7 +134,6 @@ impl CookieSession {
             from_str(&decoded).unwrap()
         };
         self.data = session_val;
-        println!("{:?}", self.data);
         Ok(())
     }
 

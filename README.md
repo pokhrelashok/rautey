@@ -9,13 +9,13 @@ Here is a basic "Hello World" backend application using the Rautey framework:
 ```rust
 use rautey::{server::Server,request::Request,response::Response};
 
-async fn hello(_:Request,mut res: Responmse,_: HashMap<String,String>) {
+async fn hello(_:Request, mut res: Responmse, _: HashMap<String,String>) {
   res.text("Hello world");
 }
 
 async fn main() {
   let mut server = Server::new("3000");
-  server.router.get("/",hello,None);
+  server.router.get("/", hello, None);
   server.listen();
 }
 ```

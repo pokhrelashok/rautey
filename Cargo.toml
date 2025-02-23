@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+chrono = "0.4.39"
 dotenvy = "0.15.7"
 rand = "0.9.0"
 regex = "1.11.1"

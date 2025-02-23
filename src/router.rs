@@ -7,7 +7,7 @@ use std::{
 use dotenvy::var;
 use regex::Regex;
 
-use crate::middleware::{self, session_handler};
+use crate::middleware::session_handler;
 
 use super::{middleware::Middleware, request::Request, response::Response, HTTPMethod};
 
@@ -58,7 +58,10 @@ impl Router {
     #[must_use]
     pub fn new() -> Router {
         let mut registered_middlewares: HashMap<String, Middleware> = HashMap::new();
-        registered_middlewares.insert("session".to_string(), session_handler);
+        let session_driver = var("SESSION_DRIVER").unwrap_or_default();
+        if session_driver == "cookie" || session_driver == "cache" {
+            registered_middlewares.insert("session".to_string(), session_handler);
+        }
         let mut middlewares = HashSet::new();
         middlewares.insert("session".to_string());
 

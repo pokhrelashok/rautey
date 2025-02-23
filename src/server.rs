@@ -1,6 +1,7 @@
 use std::{env::var, error::Error, io::BufReader, net::TcpListener, ops::DerefMut};
 
 use crate::{
+    logging::log,
     request::Request,
     session::{CookieSession, FileSession, NoSession, SessionBackend, SessionStore},
     utils::uuid,
@@ -56,10 +57,8 @@ impl Server {
             }
             session.init(&request).unwrap();
             request.session = session;
-
-            println!("{} request at {}", request.method, request.path);
+            log(format!("{} request at {}", request.method, request.path));
             self.router.invoke(request, response);
-
             // pool.execute(|| {
             //     let buf_reader = BufReader::new(&stream);
             //     let request = Request::parse(buf_reader);
