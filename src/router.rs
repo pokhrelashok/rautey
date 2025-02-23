@@ -59,7 +59,7 @@ impl Router {
     pub fn new() -> Router {
         let mut registered_middlewares: HashMap<String, Middleware> = HashMap::new();
         let session_driver = var("SESSION_DRIVER").unwrap_or_default();
-        if session_driver == "cookie" || session_driver == "cache" {
+        if session_driver == "file" {
             registered_middlewares.insert("session".to_string(), session_handler);
         }
         let mut middlewares = HashSet::new();

@@ -1,7 +1,8 @@
 /target
-public/*
+public
 .env
 .env.local
 .env.production
 .env.development
-sessions/*
+sessions
+logs

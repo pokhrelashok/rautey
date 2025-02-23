@@ -1,9 +1,11 @@
 use std::{
     collections::HashMap,
+    env::var,
     error::Error,
     fmt::Debug,
     fs::{write, OpenOptions},
     io::{Read, Seek},
+    path::Path,
 };
 
 use serde_json::{from_slice, from_str, to_value, Value};
@@ -65,11 +67,21 @@ impl SessionStore for SessionBackend {
 
 impl FileSession {
     pub fn init(&mut self) -> Result<(), Box<dyn Error>> {
+        let file_path = format!(
+            "{}/{}",
+            var("APP_SESSION_DIR").unwrap_or("sessions".to_string()),
+            self.id
+        );
+        let path = Path::new(&file_path);
+        let parent_dir = path.parent().ok_or("Invalid file path")?;
+        if !parent_dir.exists() {
+            std::fs::create_dir_all(parent_dir)?;
+        }
         let mut file = OpenOptions::new()
             .read(true)
             .write(true)
             .create(true)
-            .open(format!("sessions/{}", self.id))?;
+            .open(path)?;
 
         let mut data = vec![];
         file.seek(std::io::SeekFrom::Start(0))?;

@@ -1,7 +1,6 @@
 use dotenvy::var;
 use rautey::{
-    cookie::Cookie, request::Request, response::Response, router::Router, server::Server,
-    session::SessionStore,
+    request::Request, response::Response, router::Router, server::Server, session::SessionStore,
 };
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, path::Path};
