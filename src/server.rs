@@ -38,9 +38,10 @@ impl Server {
             let mut session: SessionBackend;
             let new_id = uuid();
             let session_id = request.cookies.get("session_id").unwrap_or(&new_id);
-            if var("SESSION_DRIVER").unwrap() == "file" {
+            let session_driver = var("SESSION_DRIVER").unwrap_or_default();
+            if session_driver == "file" {
                 session = SessionBackend::File(FileSession::new(session_id));
-            } else if var("SESSION_DRIVER").unwrap() == "cookie" {
+            } else if session_driver == "cookie" {
                 session = SessionBackend::Cookie(CookieSession::new(session_id));
             } else {
                 session = SessionBackend::NoSession(NoSession::new());

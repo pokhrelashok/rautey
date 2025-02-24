@@ -10,3 +10,7 @@ pub fn uuid() -> String {
     let string = Alphanumeric.sample_string(&mut rand::thread_rng(), 16);
     return format!("{}{}", seconds, string);
 }
+
+pub fn cleanup_path<T: AsRef<str>>(path: T) -> String {
+    path.as_ref().trim_matches('/').to_string()
+}

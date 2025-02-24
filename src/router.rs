@@ -7,7 +7,7 @@ use std::{
 use dotenvy::var;
 use regex::Regex;
 
-use crate::middleware::session_handler;
+use crate::{middleware::session_handler, utils::cleanup_path};
 
 use super::{middleware::Middleware, request::Request, response::Response, HTTPMethod};
 
@@ -119,21 +119,9 @@ impl Router {
         self.register(path, HTTPMethod::PATCH, handler)
     }
 
-    pub fn group<T: AsRef<str>, F: FnOnce(&mut Router)>(
-        &mut self,
-        path: T,
-        // middlewares: Option<impl IntoIterator<Item = impl AsRef<str>>>,
-        configure: F,
-    ) {
-        // let middlewares: Vec<String> = middlewares
-        //     .map(|m| m.into_iter().map(|s| s.as_ref().to_string()).collect())
-        //     .unwrap_or_else(Vec::new);
-
-        let prefix = format!("{}/{}", self.prefix, path.as_ref())
-            .trim_matches('/')
-            .to_owned();
+    pub fn group<T: AsRef<str>, F: FnOnce(&mut Router)>(&mut self, path: T, configure: F) {
+        let prefix = cleanup_path(format!("{}/{}", self.prefix, path.as_ref()));
         let mut sub_router = Router::new();
-        // let group_middlewares: HashSet<String> = middlewares.into_iter().collect();
         let middlewares = self.middlewares.clone();
         sub_router.with_prefix(prefix).with_middlewares(middlewares);
         configure(&mut sub_router);
@@ -146,8 +134,8 @@ impl Router {
         method: HTTPMethod,
         handler: RouteHandler,
     ) -> &mut Box<Route> {
-        let prefix = self.prefix.trim_matches('/');
-        let clean_path = path.trim_matches('/');
+        let prefix = cleanup_path(&self.prefix);
+        let clean_path = cleanup_path(path);
         let path = format!(
             "{}{}{}",
             prefix,
@@ -193,7 +181,7 @@ impl Router {
     }
 
     pub fn invoke(&self, mut request: Request, mut response: Response) {
-        let path = request.path.trim_matches('/');
+        let path = cleanup_path(&request.path);
 
         let mut current_path = &self.routes;
         let mut found = true;
@@ -250,10 +238,7 @@ impl Router {
     }
 
     fn try_serve_public(&self, request: Request, mut response: Response) {
-        let mut public_path = var("APP_PUBLIC_DIR")
-            .unwrap_or("public".to_string())
-            .trim_matches('/')
-            .to_string();
+        let mut public_path = cleanup_path(var("APP_PUBLIC_DIR").unwrap_or("public".to_string()));
         public_path.push_str(&request.path);
         response.file(Path::new(&public_path));
     }
