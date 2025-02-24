@@ -1,6 +1,6 @@
 # Rautey
 
-Rautey is a little backend framework for building HTTP servers in rust. Rautey has support for route groups, cookies, middlewares, storage and sessions.
+Rautey is a little backend framework for building HTTP servers in rust. Rautey has support for route groups, params & wildcards(*), cookies, middlewares, storage and sessions.
 
 ## Hello World Example
 
